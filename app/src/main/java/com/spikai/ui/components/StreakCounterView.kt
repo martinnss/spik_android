@@ -32,8 +32,7 @@ import kotlinx.coroutines.flow.emptyFlow
 fun StreakCounterView(
     refreshTrigger: Flow<Unit>? = null,
     viewModel: StreakViewModel = StreakViewModel(
-        context = LocalContext.current,
-        streakService = com.spikai.service.StreakService.getInstance(LocalContext.current)
+        context = LocalContext.current
     )
 ) {
     // State collection from ViewModel
@@ -296,9 +295,9 @@ private fun ErrorView(
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFFFF3B30).copy(alpha = 0.1f) // ErrorRed
         ),
-        border = ButtonDefaults.outlinedButtonBorder.copy(
+        border = androidx.compose.foundation.BorderStroke(
             width = 1.dp,
-            brush = null
+            color = Color(0xFFFF3B30) // ErrorRed
         )
     ) {
         Row(

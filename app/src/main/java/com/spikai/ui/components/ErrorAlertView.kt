@@ -1,5 +1,6 @@
 package com.spikai.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -17,7 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.spikai.model.SpikError
+import com.spikai.service.SpikError
 
 @Composable
 fun ErrorAlertView(
@@ -68,7 +69,7 @@ fun ErrorAlertView(
             
             // Error Description
             Text(
-                text = error.localizedDescription,
+                text = error.errorDescription,
                 fontSize = 16.sp,
                 color = Color(0xFF8E8E93), // TextSecondary
                 textAlign = TextAlign.Center,
@@ -76,9 +77,9 @@ fun ErrorAlertView(
             )
             
             // Recovery Suggestion
-            error.recoverySuggestion?.let { suggestion ->
+            if (error.recoverySuggestion.isNotEmpty()) {
                 Text(
-                    text = suggestion,
+                    text = error.recoverySuggestion,
                     fontSize = 12.sp,
                     color = Color(0xFF8E8E93), // TextSecondary
                     textAlign = TextAlign.Center,
@@ -149,7 +150,7 @@ private fun ErrorAlertViewPreview() {
         verticalArrangement = Arrangement.Center
     ) {
         ErrorAlertView(
-            error = SpikError.noInternetConnection,
+            error = SpikError.NO_INTERNET_CONNECTION,
             onRetry = {
                 println("Retry tapped")
             },

@@ -145,12 +145,20 @@ private fun LevelHeader(level: CareerLevel) {
                         modifier = Modifier.size(32.dp)
                     )
                 } else {
+                    // Alternative: Use Text with emoji if icons fail
+                    Text(
+                        text = getEmojiForLevel(level),
+                        fontSize = 32.sp,
+                        color = Color.White
+                    )
+                    /* Original icon approach:
                     Icon(
                         imageVector = getIconForLevel(level),
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(32.dp)
                     )
+                    */
                 }
             }
             
@@ -350,11 +358,23 @@ private fun startLevel(
 private fun getIconForLevel(level: CareerLevel): androidx.compose.ui.graphics.vector.ImageVector {
     return when {
         level.title.contains("Presentación", ignoreCase = true) -> Icons.Default.Person
-        level.title.contains("Conversación", ignoreCase = true) -> Icons.Default.Message
+        level.title.contains("Conversación", ignoreCase = true) -> Icons.Default.Chat
         level.title.contains("Trabajo", ignoreCase = true) -> Icons.Default.Work
-        level.title.contains("Viaje", ignoreCase = true) -> Icons.Default.Explore
+        level.title.contains("Viaje", ignoreCase = true) -> Icons.Default.Flight
         level.title.contains("Restaurante", ignoreCase = true) -> Icons.Default.Restaurant
-        else -> Icons.Default.Book // Default fallback
+        else -> Icons.Default.School // Default fallback
+    }
+}
+
+// Alternative: Emoji-based icons (fallback if Material Icons fail)
+private fun getEmojiForLevel(level: CareerLevel): String {
+    return when {
+        level.title.contains("Presentación", ignoreCase = true) -> "👤"
+        level.title.contains("Conversación", ignoreCase = true) -> "💬"
+        level.title.contains("Trabajo", ignoreCase = true) -> "💼"
+        level.title.contains("Viaje", ignoreCase = true) -> "✈️"
+        level.title.contains("Restaurante", ignoreCase = true) -> "🍽️"
+        else -> "📚" // Default fallback
     }
 }
 

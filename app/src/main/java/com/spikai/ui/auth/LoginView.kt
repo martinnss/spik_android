@@ -50,7 +50,9 @@ fun LoginView(
                     )
                 )
             )
-    ) { constraints ->
+    ) {
+        val maxHeight = maxHeight
+        
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -60,14 +62,14 @@ fun LoginView(
             HeaderSection(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(constraints.maxHeight * 0.4f)
+                    .height(maxHeight * 0.4f)
             )
             
             // Content Section  
             ContentSection(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = constraints.maxHeight * 0.6f),
+                    .heightIn(min = maxHeight * 0.6f),
                 onGoogleSignIn = {
                     // TODO: Implement Google Sign-In
                     handleSuccessfulSignIn(onSuccessfulLogin, onDismiss)

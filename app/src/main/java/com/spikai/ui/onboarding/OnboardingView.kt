@@ -18,7 +18,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.spikai.model.OnboardingStep
+import com.spikai.viewmodel.OnboardingStep
 import com.spikai.viewmodel.OnboardingViewModel
 
 @Composable

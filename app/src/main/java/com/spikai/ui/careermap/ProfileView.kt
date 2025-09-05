@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.spikai.model.UserProfile
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileView(
     onDismiss: () -> Unit

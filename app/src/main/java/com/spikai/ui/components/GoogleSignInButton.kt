@@ -1,5 +1,6 @@
 package com.spikai.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -24,22 +25,22 @@ fun GoogleSignInButton(
     action: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val signInManager = remember { GoogleSignInManager.getInstance(context) }
-    
-    // Collect state from the manager
-    val isLoading by signInManager.isLoading.collectAsState()
-    val errorMessage by signInManager.errorMessage.collectAsState()
+    var isLoading by remember { mutableStateOf(false) }
     
     Button(
         onClick = {
             // TODO: Implement Google Sign-In logic
-            // signInManager.signInWithGoogle { success ->
+            // For now, simulate loading and then call action
+            isLoading = true
+            // In real implementation, this would be:
+            // GoogleSignInManager.signIn { success ->
+            //     isLoading = false
             //     if (success) {
             //         action()
             //     }
             // }
-            action() // For now, just call the action directly
+            action()
+            isLoading = false
         },
         modifier = modifier
             .fillMaxWidth()

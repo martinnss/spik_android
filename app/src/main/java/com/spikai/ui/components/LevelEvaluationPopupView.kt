@@ -191,7 +191,11 @@ private fun ScoreCircle(
     
     val numberScale by animateFloatAsState(
         targetValue = if (animateScore) 1.0f else 0.5f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium).delayed(500),
+        animationSpec = tween(
+            durationMillis = 300,
+            delayMillis = 500,
+            easing = EaseInOut
+        ),
         label = "number_scale"
     )
     
@@ -410,15 +414,6 @@ private fun ActionButtons(
             }
         }
     }
-}
-
-// Extension function for delayed animations
-private fun <T> AnimationSpec<T>.delayed(delayMillis: Int): AnimationSpec<T> {
-    return tween<T>(
-        durationMillis = if (this is TweenSpec) this.durationMillis else 300,
-        delayMillis = delayMillis,
-        easing = if (this is TweenSpec) this.easing else LinearEasing
-    )
 }
 
 @Preview

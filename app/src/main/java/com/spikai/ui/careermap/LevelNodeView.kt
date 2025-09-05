@@ -1,6 +1,7 @@
 package com.spikai.ui.careermap
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -336,9 +337,9 @@ private fun getIconForLevel(level: CareerLevel): ImageVector {
     return when {
         level.title.contains("Presentación", ignoreCase = true) -> Icons.Default.Person
         level.title.contains("Conversación", ignoreCase = true) -> Icons.Default.Chat
-        level.title.contains("Trabajo", ignoreCase = true) -> Icons.Default.Work
+        level.title.contains("Trabajo", ignoreCase = true) -> Icons.Default.Business
         level.title.contains("Viaje", ignoreCase = true) -> Icons.Default.Flight
-        level.title.contains("Restaurante", ignoreCase = true) -> Icons.Default.Restaurant
-        else -> Icons.Default.School // Default fallback
+        level.title.contains("Restaurante", ignoreCase = true) -> Icons.Default.LocalDining
+        else -> Icons.Default.MenuBook // Default fallback
     }
 }

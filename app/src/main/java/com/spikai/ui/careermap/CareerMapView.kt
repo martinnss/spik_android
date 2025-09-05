@@ -48,6 +48,7 @@ fun CareerMapView(
     var userProfile by remember { mutableStateOf(UserProfile()) }
     var showingPathSelector by remember { mutableStateOf(false) }
     var showingLanguageSelector by remember { mutableStateOf(false) }
+    var retryTrigger by remember { mutableStateOf(0) }
     
     // Node-based animation states
     var isAnimatingUnlock by remember { mutableStateOf(false) }
@@ -60,7 +61,7 @@ fun CareerMapView(
     // TODO: Implement ErrorHandlingService equivalent
     // val errorHandler = ErrorHandlingService.shared
     
-    LaunchedEffect(Unit) {
+    LaunchedEffect(Unit, retryTrigger) {
         loadUserProfile { profile ->
             userProfile = profile
         }
@@ -80,7 +81,7 @@ fun CareerMapView(
             isLoading -> LoadingView()
             !errorMessage.isNullOrEmpty() -> ErrorView(
                 message = errorMessage ?: "",
-                onRetry = { viewModel.loadCareerLevels() }
+                onRetry = { retryTrigger++ }
             )
             else -> MainContent(
                 viewModel = viewModel,
