@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "561746006271",
+    "project_id": "spik-backend",
+    "storage_bucket": "spik-backend.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:561746006271:android:bbbeb12616d3117e3cbcca",
+        "android_client_info": {
+          "package_name": "com.spikai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "561746006271-us35gccgnfa5b2ol4pgibb8vq35vq8nk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpod3khsBMH8Bqf6d5Ww4FK8vmlMit-T8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "561746006271-us35gccgnfa5b2ol4pgibb8vq35vq8nk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "561746006271-ord9uo2vjmtgvdf78arnnt9t0h43hkk4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "molivares.Spik"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
