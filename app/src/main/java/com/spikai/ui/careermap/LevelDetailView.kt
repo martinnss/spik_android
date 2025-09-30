@@ -2,9 +2,6 @@ package com.spikai.ui.careermap
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -238,27 +235,39 @@ private fun SkillsSection(level: CareerLevel) {
                 color = Color(0xFF1C1C1E) // primary
             )
             
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 120.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.height(((level.skills.size + 1) / 2 * 40).dp) // Estimate height
+            // Skills grid using regular Column and Row layout
+            val skillChunks = level.skills.chunked(2) // Group skills in pairs
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(level.skills) { skill ->
-                    Card(
-                        shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF007AFF).copy(alpha = 0.1f) // PrimaryBlue with opacity
-                        )
+                skillChunks.forEach { rowSkills ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = skill,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF007AFF), // PrimaryBlue
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            textAlign = TextAlign.Center
-                        )
+                        rowSkills.forEach { skill ->
+                            Card(
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFF007AFF).copy(alpha = 0.1f) // PrimaryBlue with opacity
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = skill,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF007AFF), // PrimaryBlue
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                        
+                        // Add spacer if odd number of skills in last row
+                        if (rowSkills.size < 2) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }

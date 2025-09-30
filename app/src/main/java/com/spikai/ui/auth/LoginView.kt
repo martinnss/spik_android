@@ -70,10 +70,8 @@ fun LoginView(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = maxHeight * 0.6f),
-                onGoogleSignIn = {
-                    // TODO: Implement Google Sign-In
-                    handleSuccessfulSignIn(onSuccessfulLogin, onDismiss)
-                }
+                onSuccessfulLogin = onSuccessfulLogin,
+                onDismiss = onDismiss
             )
         }
     }
@@ -158,7 +156,8 @@ private fun HeaderSection(
 @Composable
 private fun ContentSection(
     modifier: Modifier = Modifier,
-    onGoogleSignIn: () -> Unit
+    onSuccessfulLogin: (() -> Unit)?,
+    onDismiss: () -> Unit
 ) {
     Column(
         modifier = modifier.padding(horizontal = 20.dp)
@@ -182,7 +181,10 @@ private fun ContentSection(
                 BenefitsSection()
                 
                 // Sign In Section
-                SignInSection(onGoogleSignIn = onGoogleSignIn)
+                SignInSection(
+                    onSuccessfulLogin = onSuccessfulLogin,
+                    onDismiss = onDismiss
+                )
                 
                 // Terms Section
                 TermsSection()
@@ -284,7 +286,8 @@ private fun BenefitRow(
 
 @Composable
 private fun SignInSection(
-    onGoogleSignIn: () -> Unit
+    onSuccessfulLogin: (() -> Unit)?,
+    onDismiss: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -301,47 +304,15 @@ private fun SignInSection(
         Column(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Google Sign In Button
-            GoogleSignInButton(onClick = onGoogleSignIn)
+            // Use the proper GoogleSignInButton component
+            com.spikai.ui.components.GoogleSignInButton(
+                action = {
+                    handleSuccessfulSignIn(onSuccessfulLogin, onDismiss)
+                }
+            )
             
             // TODO: Apple Sign In not implemented as per instructions
             // Note: Apple Sign In would require platform-specific implementation
-        }
-    }
-}
-
-@Composable
-private fun GoogleSignInButton(
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF4285F4) // Google Blue
-        )
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // TODO: Add Google logo icon
-            Icon(
-                imageVector = Icons.Default.Login, // Placeholder for Google logo
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
-            )
-            
-            Text(
-                text = "Continuar con Google",
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
         }
     }
 }

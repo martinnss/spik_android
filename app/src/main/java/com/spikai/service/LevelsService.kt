@@ -29,6 +29,8 @@ class LevelsService {
         return withContext(Dispatchers.IO) {
             val url = "$baseURL/get-levels"
             
+            println("🌐 [LevelsService] Starting API call to: $url")
+            
             val request = Request.Builder()
                 .url(url)
                 .get()
@@ -36,7 +38,9 @@ class LevelsService {
                 .build()
             
             try {
+                println("📡 [LevelsService] Executing HTTP request...")
                 val response = client.newCall(request).execute()
+                println("📨 [LevelsService] Received response with status: ${response.code}")
                 
                 // Check HTTP response status
                 when (response.code) {
@@ -78,12 +82,32 @@ class LevelsService {
                 }
                 
                 try {
+                    println("📄 [LevelsService] Raw API response body (first 500 chars):")
+                    println(responseBody.take(500))
+                    println("📄 [LevelsService] Response body length: ${responseBody.length}")
+                    
                     val levelsResponse = json.decodeFromString<LevelsResponse>(responseBody)
+                    println("✅ [LevelsService] Successfully decoded ${levelsResponse.levels.size} levels")
                     levelsResponse.levels
                 } catch (e: Exception) {
-                    val error = SpikError.DATA_CORRUPTED
-                    errorHandler.showError(error)
-                    throw SpikErrorException(error)
+                    println("❌ [LevelsService] JSON decoding failed: ${e.message}")
+                    println("📄 [LevelsService] Full response body:")
+                    println(responseBody)
+                    
+                    // Check if it's actually a JSON parsing issue or something else
+                    if (responseBody.trim().startsWith("{") || responseBody.trim().startsWith("[")) {
+                        // It looks like JSON but failed to parse - this could be DATA_CORRUPTED
+                        println("🔍 [LevelsService] Response looks like JSON but failed to parse - potential schema mismatch")
+                        val error = SpikError.DATA_CORRUPTED
+                        errorHandler.showError(error)
+                        throw SpikErrorException(error)
+                    } else {
+                        // It doesn't look like JSON - probably server error or HTML error page
+                        println("🔍 [LevelsService] Response doesn't look like JSON - likely server error")
+                        val error = SpikError.SERVER_UNAVAILABLE
+                        errorHandler.showError(error)
+                        throw SpikErrorException(error)
+                    }
                 }
                 
             } catch (e: SpikErrorException) {
@@ -92,6 +116,40 @@ class LevelsService {
                 val spikError = errorHandler.handleError(e)
                 errorHandler.showError(spikError)
                 throw SpikErrorException(spikError)
+            }
+        }
+    }
+    
+    /**
+     * Test method to check what the API is actually returning
+     */
+    suspend fun testAPIEndpoint(): String {
+        return withContext(Dispatchers.IO) {
+            val url = "$baseURL/get-levels"
+            
+            println("🧪 [LevelsService] Testing API endpoint: $url")
+            
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("Content-Type", "application/json")
+                .build()
+            
+            try {
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string() ?: "No response body"
+                
+                println("🧪 [LevelsService] Test API Response:")
+                println("   Status Code: ${response.code}")
+                println("   Content-Type: ${response.header("Content-Type")}")
+                println("   Response Body Length: ${responseBody.length}")
+                println("   Response Body (first 1000 chars): ${responseBody.take(1000)}")
+                
+                responseBody
+            } catch (e: Exception) {
+                val errorMsg = "Test API call failed: ${e.message}"
+                println("❌ [LevelsService] $errorMsg")
+                errorMsg
             }
         }
     }

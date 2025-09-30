@@ -138,6 +138,9 @@ class ErrorHandlingService {
     private val _isShowingError = MutableStateFlow(false)
     val isShowingError: StateFlow<Boolean> = _isShowingError.asStateFlow()
     
+    private val _isShowingDataCorruptionError = MutableStateFlow(false)
+    val isShowingDataCorruptionError: StateFlow<Boolean> = _isShowingDataCorruptionError.asStateFlow()
+    
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
     
     companion object {
@@ -203,6 +206,22 @@ class ErrorHandlingService {
     
     // Overload for SpikError directly
     fun showError(spikError: SpikError, file: String = "", function: String = "", line: Int = 0) {
+        // Handle data corruption errors specially
+        if (spikError == SpikError.DATA_CORRUPTED) {
+            println("🚨 [ErrorHandlingService] === DATA CORRUPTION DETECTED ===")
+            println("🚨 [ErrorHandlingService] Location: $file:$line in $function")
+            println("🚨 [ErrorHandlingService] SpikError: $spikError")
+            println("🚨 [ErrorHandlingService] Error description: ${spikError.errorDescription}")
+            println("🚨 [ErrorHandlingService] === SHOWING DATA CORRUPTION UI ===")
+            
+            coroutineScope.launch {
+                _currentError.value = spikError
+                _isShowingDataCorruptionError.value = true
+                _isShowingError.value = true
+            }
+            return
+        }
+        
         // Only show critical errors to user
         if (!spikError.shouldShowToUser) {
             println("📝 [ErrorHandlingService] Non-critical error logged (not showing to user): ${spikError.errorDescription}")
@@ -233,6 +252,19 @@ class ErrorHandlingService {
         coroutineScope.launch {
             _currentError.value = null
             _isShowingError.value = false
+            _isShowingDataCorruptionError.value = false
+        }
+    }
+    
+    // Clear only data corruption error
+    fun clearDataCorruptionError() {
+        coroutineScope.launch {
+            _isShowingDataCorruptionError.value = false
+            // Only clear general error if it was a data corruption error
+            if (_currentError.value == SpikError.DATA_CORRUPTED) {
+                _currentError.value = null
+                _isShowingError.value = false
+            }
         }
     }
 }

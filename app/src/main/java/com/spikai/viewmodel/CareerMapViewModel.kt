@@ -11,13 +11,18 @@ import com.spikai.model.UserProfile
 import com.spikai.service.ErrorHandlingService
 import com.spikai.service.LevelsService
 import com.spikai.service.LocalDataService
+import com.spikai.service.DataRecoveryService
+import com.spikai.service.DataIntegrityReport
 import com.spikai.service.SpikError
 import com.spikai.service.SpikErrorException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -53,6 +58,7 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
     private val levelsService: LevelsService = LevelsService.shared
     private val errorHandler: ErrorHandlingService = ErrorHandlingService.shared
     private val localDataService: LocalDataService = LocalDataService.getInstance(context)
+    private val dataRecoveryService: DataRecoveryService = DataRecoveryService.getInstance(context)
     private var userProfile: UserProfile? = null
     private var allLevels: List<CareerLevel> = emptyList() // Store all levels to filter by path
     
@@ -82,6 +88,14 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
         loadProgressFromLocalData()  // Load from local data for fast startup
         
         viewModelScope.launch {
+            // If we have no user profile, immediately load sample data for faster startup
+            if (userProfile?.englishLevel == null) {
+                println("⚡ [CareerMapViewModel] No user profile found, loading sample data immediately")
+                loadSampleLevels()
+                _isLoading.value = false
+            }
+            
+            // Still try to load from API in the background
             loadCareerLevels()
         }
     }
@@ -103,17 +117,37 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
                 println("✅ [CareerMapViewModel] Loaded user profile with level: ${profile.englishLevel?.rawValue ?: "unknown"} (base ID: ${profile.englishLevel?.baseLevelId ?: 0})")
             } catch (e: Exception) {
                 println("❌ [CareerMapViewModel] Failed to decode user profile: ${e.message}")
-                // Set user-friendly error message
-                viewModelScope.launch {
-                    _errorMessage.value = "Hubo un problema al cargar tu perfil. Usando configuración por defecto."
+                println("🔧 [CareerMapViewModel] Attempting data recovery...")
+                
+                // Attempt to recover user profile using DataRecoveryService
+                val recoveredProfile = dataRecoveryService.recoverUserProfile()
+                if (recoveredProfile != null) {
+                    userProfile = recoveredProfile
+                    println("✅ [CareerMapViewModel] Successfully recovered user profile")
+                    
+                    // Save the recovered profile
+                    try {
+                        val recoveredJsonString = json.encodeToString(recoveredProfile)
+                        sharedPreferences.edit().putString("userProfile", recoveredJsonString).apply()
+                        println("💾 [CareerMapViewModel] Saved recovered user profile")
+                    } catch (saveError: Exception) {
+                        println("❌ [CareerMapViewModel] Failed to save recovered profile: ${saveError.message}")
+                    }
+                } else {
+                    println("�️ [CareerMapViewModel] Data recovery failed, clearing corrupted data...")
+                    
+                    // Clear corrupted data and use default
+                    sharedPreferences.edit().remove("userProfile").apply()
+                    userProfile = UserProfile()
+                    userProfile?.englishLevel = EnglishLevel.PRINCIPIANTE
+                    
+                    // Show data corruption error with recovery option
+                    val error = SpikError.DATA_CORRUPTED
+                    errorHandler.showError(error)
                 }
                 
                 // Print raw JSON data for debugging
                 println("📄 [CareerMapViewModel] Raw JSON data: $jsonString")
-                
-                // Set fallback profile
-                userProfile = UserProfile()
-                userProfile?.englishLevel = EnglishLevel.PRINCIPIANTE
             }
         } else {
             println("⚠️ [CareerMapViewModel] No user profile found in SharedPreferences, showing all levels")
@@ -165,7 +199,33 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
                 }
             } catch (e: Exception) {
                 println("❌ [CareerMapViewModel] Error decoding saved progress: ${e.message}")
-                initializeFreshProgress()
+                println("🔧 [CareerMapViewModel] Attempting to recover career progress...")
+                
+                // Attempt to recover career progress using DataRecoveryService
+                val recoveredProgress = dataRecoveryService.recoverCareerProgress()
+                if (recoveredProgress != null) {
+                    _progress.value = recoveredProgress
+                    println("✅ [CareerMapViewModel] Successfully recovered career progress")
+                    
+                    // Save the recovered progress
+                    try {
+                        val recoveredJsonString = json.encodeToString(recoveredProgress)
+                        sharedPreferences.edit().putString("careerProgress", recoveredJsonString).apply()
+                        println("💾 [CareerMapViewModel] Saved recovered career progress")
+                    } catch (saveError: Exception) {
+                        println("❌ [CareerMapViewModel] Failed to save recovered progress: ${saveError.message}")
+                    }
+                } else {
+                    println("🛠️ [CareerMapViewModel] Progress recovery failed, initializing fresh progress...")
+                    
+                    // Clear corrupted data and initialize fresh
+                    sharedPreferences.edit().remove("careerProgress").apply()
+                    initializeFreshProgress()
+                    
+                    // Show data corruption error
+                    val error = SpikError.DATA_CORRUPTED
+                    errorHandler.showError(error)
+                }
             }
         } else if (localDataService.loadUserProgress().completedLevels.isEmpty()) {
             initializeFreshProgress()
@@ -187,6 +247,10 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
         } else {
             println("⚠️ [CareerMapViewModel] Initialized default progress")
         }
+        
+        // Debug the initialized progress
+        val currentProgress = _progress.value
+        println("🔍 [CareerMapViewModel] Fresh progress initialized - Completed: ${currentProgress.completedLevels}, Unlocked: ${currentProgress.unlockedLevels}, Current Level: ${currentProgress.currentLevel}")
     }
     
     private fun saveProgressToSharedPreferences() {
@@ -210,50 +274,73 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
     }
     
     suspend fun loadCareerLevels() {
-        viewModelScope.launch {
+        // Don't set loading to true if we already have sample data
+        val hasExistingLevels = _levels.value.isNotEmpty()
+        if (!hasExistingLevels) {
             _isLoading.value = true
-            _errorMessage.value = null
+        }
+        _errorMessage.value = null
+        
+        val currentProgress = _progress.value
+        println("🔄 [CareerMapViewModel] Loading levels. Current progress - Completed: ${currentProgress.completedLevels}, Unlocked: ${currentProgress.unlockedLevels}")
+        
+        try {
+            println("🌐 [CareerMapViewModel] Starting API call to fetch levels...")
             
-            val currentProgress = _progress.value
-            println("🔄 [CareerMapViewModel] Loading levels. Current progress - Completed: ${currentProgress.completedLevels}, Unlocked: ${currentProgress.unlockedLevels}")
-            
-            try {
-                val apiLevels = levelsService.fetchLevels()
-                
-                // Store all levels for path switching
-                allLevels = apiLevels
-                
-                // Set initial path if not set
-                val userLevel = userProfile?.englishLevel
-                if (userLevel != null) {
-                    _currentSelectedPath.value = userLevel
-                } else {
-                    _currentSelectedPath.value = EnglishLevel.PRINCIPIANTE
-                }
-                
-                // Update levels based on selected path
-                updateLevelsForSelectedPath()
-                
-                println("✅ [CareerMapViewModel] Loaded ${_levels.value.size} levels from API for path: ${_currentSelectedPath.value.rawValue} (filtered from ${apiLevels.size} total)")
-                
-                // Clear any previous errors on successful load
-                _errorMessage.value = null
-                
-            } catch (e: Exception) {
-                // Set user-friendly error message for the UI
-                val errorMsg = when (e) {
-                    is SpikErrorException -> e.spikError.errorDescription
-                    else -> "No pudimos cargar los niveles. Usando contenido de ejemplo."
-                }
-                _errorMessage.value = errorMsg
-                
-                println("❌ [CareerMapViewModel] Error loading levels: ${e.message}")
-                // Fallback to sample data in case of error
-                loadSampleLevels()
+            // Add a timeout wrapper around the API call
+            val apiLevels = withTimeout(10000) { // 10 second timeout
+                levelsService.fetchLevels()
             }
             
-            _isLoading.value = false
+            println("📦 [CareerMapViewModel] API call completed, received ${apiLevels.size} levels")
+            
+            // Store all levels for path switching
+            allLevels = apiLevels
+            
+            // Set initial path if not set
+            val userLevel = userProfile?.englishLevel
+            if (userLevel != null) {
+                _currentSelectedPath.value = userLevel
+            } else {
+                _currentSelectedPath.value = EnglishLevel.PRINCIPIANTE
+            }
+            
+            // Update levels based on selected path
+            updateLevelsForSelectedPath()
+            
+            println("✅ [CareerMapViewModel] Loaded ${_levels.value.size} levels from API for path: ${_currentSelectedPath.value.rawValue} (filtered from ${apiLevels.size} total)")
+            
+            // Clear any previous errors on successful load
+            _errorMessage.value = null
+            
+        } catch (e: TimeoutCancellationException) {
+            println("⏱️ [CareerMapViewModel] API call timed out after 10 seconds, falling back to sample data")
+            if (!hasExistingLevels) {
+                _errorMessage.value = "Conexión lenta detectada. Mostrando contenido de ejemplo."
+                loadSampleLevels()
+            } else {
+                println("📱 [CareerMapViewModel] Keeping existing sample data since API timed out")
+            }
+        } catch (e: Exception) {
+            // Set user-friendly error message for the UI
+            val errorMsg = when (e) {
+                is SpikErrorException -> e.spikError.errorDescription
+                else -> "No pudimos cargar los niveles. Usando contenido de ejemplo."
+            }
+            
+            if (!hasExistingLevels) {
+                _errorMessage.value = errorMsg
+                println("❌ [CareerMapViewModel] Error loading levels: ${e.message}")
+                println("🔍 [CareerMapViewModel] Exception type: ${e::class.java}")
+                
+                // Fallback to sample data in case of error
+                loadSampleLevels()
+            } else {
+                println("📱 [CareerMapViewModel] Keeping existing sample data since API failed")
+            }
         }
+        
+        _isLoading.value = false
     }
     
     private fun filterLevelsForUser(allLevels: List<CareerLevel>): List<CareerLevel> {
@@ -288,27 +375,40 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
         // Fallback method using sample data
         println("🔄 [CareerMapViewModel] Loading sample levels as fallback")
         val sampleLevels = com.spikai.model.CareerLevelSamples.sampleLevels
+        println("📦 [CareerMapViewModel] Found ${sampleLevels.size} sample levels")
+        
         allLevels = sampleLevels
         
         // Set current selected path
         val userLevel = userProfile?.englishLevel
         if (userLevel != null) {
             _currentSelectedPath.value = userLevel
+            println("🎯 [CareerMapViewModel] Set path to user level: ${userLevel.rawValue}")
         } else {
             _currentSelectedPath.value = EnglishLevel.PRINCIPIANTE
+            println("🎯 [CareerMapViewModel] Set default path to: PRINCIPIANTE")
         }
         
         val filteredSampleLevels = filterLevelsForUser(sampleLevels)
+        println("📋 [CareerMapViewModel] Filtered to ${filteredSampleLevels.size} levels for current path")
+        
+        val currentProgress = _progress.value
+        println("🔍 [CareerMapViewModel] Current progress - Completed: ${currentProgress.completedLevels}, Unlocked: ${currentProgress.unlockedLevels}")
         
         val levelsWithProgress = filteredSampleLevels.map { level ->
+            val isUnlocked = shouldLevelBeUnlocked(level.levelId)
+            val isCompleted = currentProgress.completedLevels.contains(level.levelId)
+            
+            println("📝 [CareerMapViewModel] Level ${level.levelId} (${level.title}) - Unlocked: $isUnlocked, Completed: $isCompleted")
+            
             CareerLevel(
                 levelId = level.levelId,
                 title = level.title,
                 description = level.description,
                 toLearn = level.toLearn,
                 iosSymbol = level.iosSymbol, // Include the iosSymbol from sample data
-                isUnlocked = shouldLevelBeUnlocked(level.levelId),
-                isCompleted = _progress.value.completedLevels.contains(level.levelId),
+                isUnlocked = isUnlocked,
+                isCompleted = isCompleted,
                 experience = level.experience,
                 totalExperience = level.totalExperience
             )
@@ -316,6 +416,7 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
         
         _levels.value = levelsWithProgress
         println("✅ [CareerMapViewModel] Loaded ${levelsWithProgress.size} sample levels")
+        println("📊 [CareerMapViewModel] Final levels state: ${levelsWithProgress.map { "${it.levelId}:${if(it.isUnlocked) "U" else "L"}${if(it.isCompleted) "C" else ""}" }}")
     }
     
     private fun getExperienceForLevel(levelId: Int): Int {
@@ -348,6 +449,13 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
             // Aquí se iniciaría el nivel seleccionado
             // Por ahora solo cerramos el modal
             _isLevelDetailShowing.value = false
+        }
+    }
+    
+    fun dismissLevelDetail() {
+        viewModelScope.launch {
+            _isLevelDetailShowing.value = false
+            _selectedLevel.value = null
         }
     }
     
@@ -562,7 +670,13 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
      * Determine if a level should be unlocked based on user's overall progress
      */
     private fun shouldLevelBeUnlocked(levelId: Int): Boolean {
-        val userLevel = userProfile?.englishLevel ?: return false
+        val userLevel = userProfile?.englishLevel
+        
+        // If no user profile or English level is set, default to PRINCIPIANTE path logic
+        if (userLevel == null) {
+            // For new users without profile, use the progress unlock logic for PRINCIPIANTE path
+            return _progress.value.unlockedLevels.contains(levelId)
+        }
         
         // If the level is from a path lower than user's level, unlock all levels in that path
         val userBaseLevelId = userLevel.baseLevelId
@@ -580,6 +694,94 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
             else -> {
                 // Future paths are locked
                 false
+            }
+        }
+    }
+    
+    // MARK: - Data Recovery Methods
+    
+    fun performDataIntegrityCheck(): DataIntegrityReport {
+        println("🔍 [CareerMapViewModel] Performing comprehensive data integrity check...")
+        return dataRecoveryService.performDataIntegrityCheck()
+    }
+    
+    fun clearCorruptedDataAndRestart() {
+        viewModelScope.launch {
+            println("🧹 [CareerMapViewModel] User requested corrupted data clear...")
+            
+            val success = dataRecoveryService.clearCorruptedData()
+            if (success) {
+                println("✅ [CareerMapViewModel] Corrupted data cleared, reinitializing...")
+                
+                // Reinitialize everything
+                loadUserProfile()
+                loadProgressFromLocalData()
+                loadCareerLevels()
+                
+                // Clear any error messages
+                _errorMessage.value = null
+                
+                println("🎉 [CareerMapViewModel] Data recovery complete!")
+            } else {
+                println("❌ [CareerMapViewModel] Failed to clear corrupted data")
+                _errorMessage.value = "No se pudo limpiar los datos corruptos. Intenta reiniciar la app."
+            }
+        }
+    }
+    
+    fun recoverSpecificData(dataType: String) {
+        viewModelScope.launch {
+            when (dataType) {
+                "userProfile" -> {
+                    val recovered = dataRecoveryService.recoverUserProfile()
+                    if (recovered != null) {
+                        userProfile = recovered
+                        println("✅ [CareerMapViewModel] User profile recovered")
+                    }
+                }
+                "careerProgress" -> {
+                    val recovered = dataRecoveryService.recoverCareerProgress()
+                    if (recovered != null) {
+                        _progress.value = recovered
+                        println("✅ [CareerMapViewModel] Career progress recovered")
+                    }
+                }
+                else -> {
+                    println("⚠️ [CareerMapViewModel] Unknown data type for recovery: $dataType")
+                }
+            }
+        }
+    }
+    
+    // MARK: - Debug/Testing Methods (for development only)
+    
+    fun testDataCorruptionRecovery() {
+        viewModelScope.launch {
+            println("🧪 [CareerMapViewModel] Testing data corruption recovery...")
+            
+            // Simulate corruption
+            dataRecoveryService.simulateDataCorruption("careerProgress")
+            
+            // Wait a moment
+            delay(100)
+            
+            // Try to load progress again to trigger recovery
+            loadProgressFromSharedPreferences()
+            
+            println("🧪 [CareerMapViewModel] Data corruption recovery test completed")
+        }
+    }
+    
+    // MARK: - Debug Methods
+    
+    fun testAPIEndpoint() {
+        viewModelScope.launch {
+            println("🧪 [CareerMapViewModel] User requested API endpoint test...")
+            try {
+                val response = levelsService.testAPIEndpoint()
+                println("🧪 [CareerMapViewModel] API test completed, response length: ${response.length}")
+            } catch (e: Exception) {
+                println("❌ [CareerMapViewModel] API test failed: ${e.message}")
             }
         }
     }

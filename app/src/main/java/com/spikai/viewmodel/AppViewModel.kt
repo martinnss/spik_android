@@ -1,5 +1,6 @@
 package com.spikai.viewmodel
 
+import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,6 +23,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     
     // Sign-in state - directly use GoogleSignInManager's state
     val isSignedIn: StateFlow<Boolean> = googleSignInManager.isSignedIn
+    val currentUser = googleSignInManager.currentUser
+    val isLoading = googleSignInManager.isLoading
+    val errorMessage = googleSignInManager.errorMessage
     
     init {
         // In debug mode, clear all data on app launch
@@ -33,6 +37,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     
     fun setOnboardingCompleted(completed: Boolean) {
         preferencesManager.setOnboardingCompleted(completed)
+    }
+    
+    fun signInWithGoogle(activity: Activity, completion: (Boolean) -> Unit) {
+        googleSignInManager.signInWithGoogle(activity, completion)
+    }
+    
+    fun signOut() {
+        googleSignInManager.signOut()
     }
     
     fun refreshSignInStatus() {

@@ -7,10 +7,13 @@ import java.util.UUID
 // MARK: - Career Level
 @Serializable
 data class CareerLevel(
+    @SerialName("level_id")
     val levelId: Int,
     val title: String,
     val description: String,
+    @SerialName("to_learn")
     val toLearn: List<String>,
+    @SerialName("ios_symbol")
     val iosSymbol: String,
     val isUnlocked: Boolean = false,
     val isCompleted: Boolean = false,
@@ -32,14 +35,7 @@ data class CareerLevel(
             0.0
         }
     
-    companion object {
-        @kotlinx.serialization.SerialName("level_id")
-        const val LEVEL_ID_KEY = "level_id"
-        @kotlinx.serialization.SerialName("to_learn") 
-        const val TO_LEARN_KEY = "to_learn"
-        @kotlinx.serialization.SerialName("ios_symbol")
-        const val IOS_SYMBOL_KEY = "ios_symbol"
-    }
+
 }
 
 // MARK: - Career Progress

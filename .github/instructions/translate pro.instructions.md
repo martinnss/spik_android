@@ -1,5 +1,5 @@
 ---
-applyTo: '**'
+applyTo: 
 ---
 # Cursor Rules for Porting iOS Swift App → Android Kotlin/Jetpack Compose
 

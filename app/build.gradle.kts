@@ -43,9 +43,6 @@ android {
 }
 
 dependencies {
-    //implementation(platform("com.google.firebase:firebase-bom:34.2.0"))
-    implementation("com.google.firebase:firebase-database")
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -62,10 +59,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     
-    // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    // Firebase - using BOM for consistent versions
+    implementation(platform("com.google.firebase:firebase-bom:33.2.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-database-ktx")
     
     // Google Sign-In
     implementation("com.google.android.gms:play-services-auth:20.7.0")
@@ -82,7 +80,11 @@ dependencies {
     
     // WebRTC for real-time communication
     implementation("io.github.webrtc-sdk:android:114.5735.03")
-    
+    implementation(libs.firebase.auth)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

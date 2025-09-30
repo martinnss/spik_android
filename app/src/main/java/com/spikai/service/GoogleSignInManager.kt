@@ -2,12 +2,16 @@ package com.spikai.service
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
+import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
@@ -18,8 +22,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.security.MessageDigest
-import java.security.SecureRandom
 import java.util.*
 
 class GoogleSignInManager private constructor(
@@ -39,14 +41,12 @@ class GoogleSignInManager private constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
     
-    // TODO: Implement ErrorHandlingService equivalent
-    // private val errorHandler = ErrorHandlingService.shared
-    
-    // Firebase and Google Sign-In clients
+    // Firebase and Credential Manager
     private val auth = FirebaseAuth.getInstance()
-    private val googleSignInClient: GoogleSignInClient
+    private val credentialManager = CredentialManager.create(context)
     
     companion object {
+        private const val TAG = "GoogleSignInManager"
         @Volatile
         private var INSTANCE: GoogleSignInManager? = null
         
@@ -58,118 +58,180 @@ class GoogleSignInManager private constructor(
     }
     
     init {
-        // Configure Google Sign-In
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(context.getString(com.spikai.R.string.default_web_client_id)) // TODO: Add to strings.xml
-            .requestEmail()
-            .build()
-        
-        googleSignInClient = GoogleSignIn.getClient(context, gso)
+        Log.d(TAG, "🏗️ GoogleSignInManager initializing...")
         
         // Check if user is already signed in
         auth.currentUser?.let { user ->
+            Log.d(TAG, "🔄 Found existing signed-in user:")
+            Log.d(TAG, "   👤 Name: ${user.displayName}")
+            Log.d(TAG, "   📧 Email: ${user.email}")
+            Log.d(TAG, "   🆔 UID: ${user.uid}")
             _isSignedIn.value = true
             _currentUser.value = user
+            
+            // This is likely where your "Usuario autenticado exitosamente" message comes from
+            Log.d(TAG, "🎊 Usuario autenticado exitosamente - continuando progreso")
+        } ?: run {
+            Log.d(TAG, "❌ No existing user found")
         }
         
         // Listen for auth state changes
         auth.addAuthStateListener { auth ->
             val user = auth.currentUser
-            _isSignedIn.value = user != null
-            _currentUser.value = user
+            Log.d(TAG, "🔔 Auth state changed:")
+            if (user != null) {
+                Log.d(TAG, "   ✅ User signed in: ${user.displayName}")
+                _isSignedIn.value = true
+                _currentUser.value = user
+            } else {
+                Log.d(TAG, "   ❌ User signed out")
+                _isSignedIn.value = false
+                _currentUser.value = null
+            }
         }
+        
+        Log.d(TAG, "✅ GoogleSignInManager initialized")
     }
     
     fun signInWithGoogle(activity: Activity, completion: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                // TODO: Implement Firebase client ID configuration check similar to Swift version
-                // val clientID = FirebaseApp.getInstance()?.options?.applicationId
-                // if (clientID == null) {
-                //     val error = SpikError.authenticationFailed
-                //     errorHandler.showError(error)
-                //     _errorMessage.value = error.localizedDescription
-                //     completion(false)
-                //     return@launch
-                // }
-                
                 _isLoading.value = true
                 _errorMessage.value = null
                 
-                // Start Google Sign-In intent
-                val signInIntent = googleSignInClient.signInIntent
-                // TODO: Handle activity result - this needs to be called from Activity with result launcher
-                // For now, we'll structure it to be called from the UI layer
+                Log.d(TAG, "🔗 Starting Google Sign-In flow")
+                Log.d(TAG, "📱 Activity: ${activity::class.simpleName}")
                 
-                println("🔗 [GoogleSignInManager] Starting Google Sign-In flow")
-                completion(false) // TODO: Implement proper activity result handling
+                // Check if user is already signed in
+                val currentUser = auth.currentUser
+                if (currentUser != null) {
+                    Log.d(TAG, "⚠️ User is already signed in: ${currentUser.displayName}")
+                    Log.d(TAG, "   📧 Email: ${currentUser.email}")
+                    Log.d(TAG, "   🆔 UID: ${currentUser.uid}")
+                    Log.d(TAG, "   ⏰ Proceeding with new sign-in anyway...")
+                }
                 
+                // Instantiate a Google sign-in request
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setServerClientId(context.getString(com.spikai.R.string.default_web_client_id))
+                    .setFilterByAuthorizedAccounts(false) // Show all accounts, not just previously authorized
+                    .build()
+                
+                Log.d(TAG, "🔧 Created GoogleIdOption with client ID")
+                
+                // Create the Credential Manager request
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+                
+                Log.d(TAG, "📝 Created credential request")
+                
+                // Get the credential
+                Log.d(TAG, "⏳ Requesting credentials from CredentialManager...")
+                val result = credentialManager.getCredential(
+                    request = request,
+                    context = activity,
+                )
+                
+                Log.d(TAG, "✅ Received credential response")
+                handleSignIn(result, completion)
+                
+            } catch (e: GetCredentialException) {
+                Log.w(TAG, "❌ Google Sign-In failed with GetCredentialException", e)
+                Log.e(TAG, "Error type: ${e::class.simpleName}")
+                Log.e(TAG, "Error message: ${e.message}")
+                handleSignInError(e, completion)
             } catch (e: Exception) {
+                Log.w(TAG, "❌ Unexpected error during sign-in", e)
+                Log.e(TAG, "Error type: ${e::class.simpleName}")
+                Log.e(TAG, "Error message: ${e.message}")
                 handleSignInError(e, completion)
             }
         }
     }
     
-    // Call this from Activity's onActivityResult or modern result launcher
-    suspend fun handleGoogleSignInResult(data: android.content.Intent?): Boolean {
-        return try {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
-            val account = task.getResult(ApiException::class.java)
+    private suspend fun handleSignIn(result: GetCredentialResponse, completion: (Boolean) -> Unit) {
+        try {
+            val credential = result.credential
+            Log.d(TAG, "🔍 Processing credential of type: ${credential.type}")
             
-            val idToken = account.idToken
-            if (idToken == null) {
-                // TODO: Use SpikError equivalent
-                // val error = SpikError.authenticationFailed
-                // errorHandler.showError(error)
-                // _errorMessage.value = error.localizedDescription
-                _errorMessage.value = "Failed to get ID token"
-                return false
+            // Check if credential is of type Google ID
+            if (credential is androidx.credentials.CustomCredential && 
+                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                
+                Log.d(TAG, "✅ Credential is Google ID Token type")
+                
+                // Create Google ID Token
+                val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                Log.d(TAG, "🎫 Created GoogleIdTokenCredential")
+                Log.d(TAG, "👤 ID: ${googleIdTokenCredential.id}")
+                Log.d(TAG, "📧 Display Name: ${googleIdTokenCredential.displayName}")
+                
+                // Sign in to Firebase using the token
+                firebaseAuthWithGoogle(googleIdTokenCredential.idToken, completion)
+            } else {
+                Log.w(TAG, "❌ Credential is not of type Google ID!")
+                Log.w(TAG, "Received credential type: ${credential.type}")
+                _errorMessage.value = "Invalid credential type"
+                _isLoading.value = false
+                completion(false)
             }
+        } catch (e: GoogleIdTokenParsingException) {
+            Log.w(TAG, "❌ Received an invalid google id token response", e)
+            handleSignInError(e, completion)
+        } catch (e: Exception) {
+            Log.w(TAG, "❌ Error handling sign-in", e)
+            handleSignInError(e, completion)
+        }
+    }
+    
+    private suspend fun firebaseAuthWithGoogle(idToken: String, completion: (Boolean) -> Unit) {
+        try {
+            Log.d(TAG, "🔥 Starting Firebase authentication with Google token")
             
             val credential = GoogleAuthProvider.getCredential(idToken, null)
+            Log.d(TAG, "🎟️ Created Firebase credential")
+            
             val authResult = auth.signInWithCredential(credential).await()
+            Log.d(TAG, "✅ Firebase signInWithCredential completed")
             
             val user = authResult.user
             if (user == null) {
-                // TODO: Use SpikError equivalent
-                // val error = SpikError.authenticationFailed
-                // errorHandler.showError(error)
-                // _errorMessage.value = error.localizedDescription
+                Log.w(TAG, "❌ signInWithCredential:failure - no user returned")
                 _errorMessage.value = "Authentication failed"
-                return false
+                _isLoading.value = false
+                completion(false)
+                return
             }
             
-            // Log user info
-            println("Signed in as ${user.displayName ?: "Unknown"}")
+            Log.d(TAG, "🎉 signInWithCredential:success")
+            Log.d(TAG, "👤 User ID: ${user.uid}")
+            Log.d(TAG, "📧 Email: ${user.email}")
+            Log.d(TAG, "🏷️ Display Name: ${user.displayName}")
+            Log.d(TAG, "📸 Photo URL: ${user.photoUrl}")
             
             // Save to Firestore
+            Log.d(TAG, "💾 Saving user data to Firestore...")
             val success = saveUserToFirestore(user)
             if (success) {
                 _isSignedIn.value = true
                 _currentUser.value = user
                 _errorMessage.value = null
                 
-                // Upload any pending FCM token now that user is authenticated
-                // TODO: Implement FCMTokenService equivalent
-                // FCMTokenService.shared.uploadPendingTokenIfExists()
-                
-                true
+                Log.d(TAG, "🎊 Usuario autenticado exitosamente - continuando progreso")
+                completion(true)
             } else {
-                // TODO: Use SpikError equivalent
-                // val error = SpikError.syncFailed
-                // errorHandler.showError(error)
-                // _errorMessage.value = error.localizedDescription
+                Log.e(TAG, "❌ Failed to save user data to Firestore")
                 _errorMessage.value = "Failed to save user data"
-                false
+                completion(false)
             }
             
         } catch (e: Exception) {
-            // TODO: Implement SpikError and ErrorHandlingService
-            // val spikError = errorHandler.handleError(e) ?: SpikError.authenticationFailed
-            // errorHandler.showError(spikError)
-            // _errorMessage.value = spikError.localizedDescription
+            Log.w(TAG, "❌ signInWithCredential:failure", e)
+            Log.e(TAG, "Exception type: ${e::class.simpleName}")
+            Log.e(TAG, "Exception message: ${e.message}")
             _errorMessage.value = "Authentication failed: ${e.localizedMessage}"
-            false
+            completion(false)
         } finally {
             _isLoading.value = false
         }
@@ -178,27 +240,45 @@ class GoogleSignInManager private constructor(
     fun signOut() {
         viewModelScope.launch {
             try {
+                Log.d(TAG, "🚪 Starting sign out process...")
+                
                 auth.signOut()
-                googleSignInClient.signOut().await()
+                Log.d(TAG, "✅ Firebase Auth sign out completed")
                 
                 _isSignedIn.value = false
                 _currentUser.value = null
                 _errorMessage.value = null
                 
-                println("🚪 [GoogleSignInManager] User signed out successfully")
+                Log.d(TAG, "🎯 User signed out successfully")
                 
             } catch (e: Exception) {
-                // TODO: Implement SpikError and ErrorHandlingService
-                // val spikError = errorHandler.handleError(e)
-                // errorHandler.showError(spikError)
-                // _errorMessage.value = spikError.localizedDescription
+                Log.w(TAG, "❌ Sign out failed", e)
                 _errorMessage.value = "Sign out failed: ${e.localizedMessage}"
+            }
+        }
+    }
+    
+    // For testing purposes - clears authentication state
+    fun clearAuthForTesting() {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "🧪 Clearing auth for testing...")
+                auth.signOut()
+                _isSignedIn.value = false
+                _currentUser.value = null
+                _errorMessage.value = null
+                Log.d(TAG, "🧹 Auth cleared for testing")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to clear auth for testing", e)
             }
         }
     }
     
     private suspend fun saveUserToFirestore(user: FirebaseUser): Boolean {
         return try {
+            Log.d(TAG, "💾 Attempting to save user data to Firestore...")
+            Log.d(TAG, "🏢 Database instance: spik")
+            
             val db = FirebaseFirestore.getInstance("spik")
             val userData = mapOf(
                 "uid" to user.uid,
@@ -209,25 +289,26 @@ class GoogleSignInManager private constructor(
                 "createdAt" to Timestamp(user.metadata?.creationTimestamp?.let { Date(it) } ?: Date())
             )
             
+            Log.d(TAG, "📄 User data prepared: $userData")
+            
             db.collection("users")
                 .document(user.uid)
                 .set(userData, com.google.firebase.firestore.SetOptions.merge())
                 .await()
             
-            println("✅ [GoogleSignInManager] User data saved successfully")
+            Log.d(TAG, "✅ User data saved successfully to Firestore")
             true
             
         } catch (e: Exception) {
-            println("❌ [GoogleSignInManager] Error saving user data: ${e.localizedMessage}")
+            Log.e(TAG, "❌ Error saving user data to Firestore", e)
+            Log.e(TAG, "Exception type: ${e::class.simpleName}")
+            Log.e(TAG, "Exception message: ${e.message}")
             false
         }
     }
     
     private fun handleSignInError(error: Exception, completion: (Boolean) -> Unit) {
-        // TODO: Implement SpikError and ErrorHandlingService
-        // val spikError = errorHandler.handleError(error) ?: SpikError.authenticationFailed
-        // errorHandler.showError(spikError)
-        // _errorMessage.value = spikError.localizedDescription
+        Log.e(TAG, "Sign in failed", error)
         _errorMessage.value = "Sign in failed: ${error.localizedMessage}"
         _isLoading.value = false
         completion(false)

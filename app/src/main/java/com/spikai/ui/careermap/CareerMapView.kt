@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -29,7 +30,9 @@ import com.spikai.model.CareerLevel
 import com.spikai.model.EnglishLevel
 import com.spikai.model.UserProfile
 import com.spikai.service.ErrorHandlingService
+import com.spikai.ui.conversation.ConversationView
 import com.spikai.viewmodel.CareerMapViewModel
+import com.spikai.viewmodel.ConversationViewModel
 import kotlinx.coroutines.delay
 
 @Composable
@@ -49,6 +52,8 @@ fun CareerMapView(
     var showingPathSelector by remember { mutableStateOf(false) }
     var showingLanguageSelector by remember { mutableStateOf(false) }
     var retryTrigger by remember { mutableStateOf(0) }
+    var showingConversation by remember { mutableStateOf(false) }
+    var selectedLevelForConversation by remember { mutableStateOf<Pair<Int, String>?>(null) }
     
     // Node-based animation states
     var isAnimatingUnlock by remember { mutableStateOf(false) }
@@ -101,28 +106,406 @@ fun CareerMapView(
     }
     
     // Sheets/Dialogs
-    if (selectedLevel != null && isLevelDetailShowing) {
-        // TODO: Implement as dialog or navigation
-        // LevelDetailView equivalent
+    selectedLevel?.let { level ->
+        if (isLevelDetailShowing) {
+            LevelDetailView(
+                level = level,
+                viewModel = viewModel,
+                onDismiss = {
+                    viewModel.dismissLevelDetail()
+                },
+                onStartConversation = { levelId, levelTitle ->
+                    println("🎮 [CareerMapView] Starting conversation for level $levelId: $levelTitle")
+                    selectedLevelForConversation = Pair(levelId, levelTitle)
+                    showingConversation = true
+                    viewModel.dismissLevelDetail()
+                }
+            )
+        }
     }
     
     if (showingProfile) {
-        // TODO: Implement ProfileView as dialog
-        // ProfileView equivalent
+        ProfileView(
+            onDismiss = { showingProfile = false }
+        )
     }
     
     if (showingPathSelector) {
-        // TODO: Implement PathSelectorView as dialog
-        // PathSelectorView equivalent
+        PathSelectorView(
+            viewModel = viewModel,
+            onDismiss = { showingPathSelector = false }
+        )
     }
     
     if (showingLanguageSelector) {
-        // TODO: Implement LanguageSelectorView as dialog
-        // LanguageSelectorView equivalent
+        LanguageSelectorView(
+            onDismiss = { showingLanguageSelector = false }
+        )
+    }
+    
+    // Conversation View
+    if (showingConversation && selectedLevelForConversation != null) {
+        ConversationView(
+            viewModel = ConversationViewModel(
+                context = LocalContext.current,
+                levelId = selectedLevelForConversation!!.first
+            ),
+            onBack = {
+                println("🔙 [CareerMapView] Closing conversation, returning to career map")
+                showingConversation = false
+                selectedLevelForConversation = null
+            }
+        )
     }
     
     // TODO: Implement error alert
     // .errorAlert(...)
+}
+
+// MARK: - Dialog Views
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PathSelectorView(
+    viewModel: CareerMapViewModel,
+    onDismiss: () -> Unit
+) {
+    val currentSelectedPath by viewModel.currentSelectedPath.collectAsStateWithLifecycle()
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cerrar")
+            }
+        },
+        title = {
+            Text(
+                text = "Rutas de Aprendizaje",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1C1C1E) // TextPrimary
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Puedes explorar niveles de rutas anteriores que ya has desbloqueado",
+                    fontSize = 14.sp,
+                    color = Color(0xFF8E8E93), // TextSecondary
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                // Available paths
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // For now, show all paths as available (TODO: implement actual availability logic)
+                    EnglishLevel.values().forEach { path ->
+                        PathRow(
+                            path = path,
+                            isAvailable = true, // TODO: implement viewModel.availablePaths logic
+                            isSelected = currentSelectedPath == path,
+                            onClick = {
+                                viewModel.switchToPath(path)
+                                onDismiss()
+                            }
+                        )
+                    }
+                }
+            }
+        },
+        modifier = Modifier.padding(16.dp)
+    )
+}
+
+@Composable
+private fun PathRow(
+    path: EnglishLevel,
+    isAvailable: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = if (isAvailable) onClick else { {} },
+        enabled = isAvailable,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isAvailable) Color(0xFFF2F2F7) else Color(0xFFF2F2F7).copy(alpha = 0.5f) // BackgroundSecondary
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) pathColor(path) else Color(0xFFD1D1D6) // BorderLight
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Path icon
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = if (isAvailable) pathColor(path) else Color(0xFF8E8E93),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = pathIcon(path),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            // Path info
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = path.pathDisplayText(),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isAvailable) Color(0xFF1C1C1E) else Color(0xFF8E8E93) // TextPrimary/TextSecondary
+                    )
+                    
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF34C759), // SuccessGreen
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    
+                    if (!isAvailable) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = Color(0xFF8E8E93), // TextSecondary
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+                
+                Text(
+                    text = path.description,
+                    fontSize = 12.sp,
+                    color = Color(0xFF8E8E93) // TextSecondary
+                )
+            }
+            
+            if (isAvailable) {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Color(0xFF8E8E93), // TextSecondary
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LanguageSelectorView(
+    onDismiss: () -> Unit
+) {
+    val availableLanguages = listOf(
+        Triple("🇺🇸", "English", true)
+    )
+    
+    val comingSoonLanguages = listOf(
+        Triple("🇪🇸", "Español", false),
+        Triple("🇫🇷", "Français", false),
+        Triple("🇩🇪", "Deutsch", false),
+        Triple("🇮🇹", "Italiano", false),
+        Triple("🇵🇹", "Português", false),
+        Triple("🇯🇵", "日本語", false)
+    )
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cerrar")
+            }
+        },
+        title = {
+            Text(
+                text = "Idiomas",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1C1C1E) // TextPrimary
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Selecciona el Idioma",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF1C1C1E), // TextPrimary
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                // Available languages section
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Disponible",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1C1C1E) // TextPrimary
+                    )
+                    
+                    availableLanguages.forEach { (flag, name, isAvailable) ->
+                        LanguageRow(
+                            flag = flag,
+                            name = name,
+                            isAvailable = isAvailable,
+                            isSelected = true // English is selected
+                        )
+                    }
+                }
+                
+                // Coming soon section
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Próximamente",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF8E8E93) // TextSecondary
+                        )
+                        
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = Color(0xFFFF9500).copy(alpha = 0.1f), // WarningOrange background
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "COMING SOON",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFF9500) // WarningOrange
+                            )
+                        }
+                    }
+                    
+                    comingSoonLanguages.forEach { (flag, name, isAvailable) ->
+                        LanguageRow(
+                            flag = flag,
+                            name = name,
+                            isAvailable = isAvailable,
+                            isSelected = false
+                        )
+                    }
+                }
+            }
+        },
+        modifier = Modifier.padding(16.dp)
+    )
+}
+
+@Composable
+private fun LanguageRow(
+    flag: String,
+    name: String,
+    isAvailable: Boolean,
+    isSelected: Boolean
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (isAvailable) Color(0xFFF2F2F7) else Color(0xFFF2F2F7).copy(alpha = 0.5f) // BackgroundSecondary
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) Color(0xFF34C759) else Color(0xFFD1D1D6) // SuccessGreen/BorderLight
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(if (isAvailable) 1f else 0.7f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Flag
+            Text(
+                text = flag,
+                fontSize = 20.sp,
+                modifier = Modifier.alpha(if (isAvailable) 1f else 0.5f)
+            )
+            
+            // Language name and status
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = name,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isAvailable) Color(0xFF1C1C1E) else Color(0xFF8E8E93) // TextPrimary/TextSecondary
+                )
+                
+                if (!isAvailable) {
+                    Text(
+                        text = "Próximamente",
+                        fontSize = 12.sp,
+                        color = Color(0xFF8E8E93) // TextSecondary
+                    )
+                }
+            }
+            
+            // Status indicator
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF34C759), // SuccessGreen
+                    modifier = Modifier.size(20.dp)
+                )
+            } else if (!isAvailable) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = Color(0xFF8E8E93), // TextSecondary
+                    modifier = Modifier.size(12.dp)
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -295,7 +678,7 @@ private fun UnitSection(
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = pathDisplayText(userProfile.englishLevel ?: EnglishLevel.PRINCIPIANTE),
+                text = (userProfile.englishLevel ?: EnglishLevel.PRINCIPIANTE).pathDisplayText(),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF1C1C1E) // TextPrimary
@@ -334,14 +717,14 @@ private fun PathSection(
     animatingCompletedLevelId: Int?,
     animatingUnlockedLevelId: Int?
 ) {
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 40.dp)
             .padding(bottom = 40.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        items(levels) { level ->
+        levels.forEach { level ->
             val index = levels.indexOf(level)
             val isCurrentLevelAnimating = currentLevelAnimating && animatingCompletedLevelId == level.levelId
             val isNextLevelAnimating = nextLevelAnimating && animatingUnlockedLevelId == level.levelId
@@ -453,14 +836,22 @@ private fun connectorShadowRadius(
     }
 }
 
-private fun pathDisplayText(path: EnglishLevel): String {
-    return when (path) {
+private fun EnglishLevel.pathDisplayText(): String {
+    return when (this) {
         EnglishLevel.PRINCIPIANTE -> "A1 - Principiante"
         EnglishLevel.BASICO -> "A2 - Básico"
         EnglishLevel.INTERMEDIO -> "B1 - Intermedio"
-        EnglishLevel.AVANZADO -> "B2 - Avanzado"
+        EnglishLevel.AVANZADO -> "B2/C1 - Avanzado"
     }
 }
+
+private val EnglishLevel.description: String
+    get() = when (this) {
+        EnglishLevel.PRINCIPIANTE -> "Conceptos básicos y vocabulario fundamental"
+        EnglishLevel.BASICO -> "Conversaciones simples y gramática elemental"
+        EnglishLevel.INTERMEDIO -> "Comunicación efectiva en situaciones cotidianas"
+        EnglishLevel.AVANZADO -> "Fluidez en conversaciones complejas y profesionales"
+    }
 
 private fun pathColor(path: EnglishLevel): Color {
     return when (path) {

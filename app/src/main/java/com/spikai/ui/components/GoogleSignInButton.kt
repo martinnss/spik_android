@@ -1,5 +1,6 @@
 package com.spikai.ui.components
 
+import android.app.Activity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,28 +20,48 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spikai.service.GoogleSignInManager
 
 @Composable
 fun GoogleSignInButton(
     action: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isLoading by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val googleSignInManager = remember { GoogleSignInManager.getInstance(context) }
+    
+    val isLoading by googleSignInManager.isLoading.collectAsState()
+    val errorMessage by googleSignInManager.errorMessage.collectAsState()
+    
+    // Show error if any
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            // TODO: Show proper error dialog or snackbar
+            println("Sign-in error: $it")
+        }
+    }
     
     Button(
         onClick = {
-            // TODO: Implement Google Sign-In logic
-            // For now, simulate loading and then call action
-            isLoading = true
-            // In real implementation, this would be:
-            // GoogleSignInManager.signIn { success ->
-            //     isLoading = false
-            //     if (success) {
-            //         action()
-            //     }
-            // }
-            action()
-            isLoading = false
+            println("🔘 GoogleSignInButton clicked!")
+            println("🔍 Context type: ${context::class.simpleName}")
+            println("🔍 Is loading: $isLoading")
+            
+            if (context is Activity) {
+                println("✅ Context is Activity - proceeding with sign-in")
+                googleSignInManager.signInWithGoogle(context) { success ->
+                    println("📝 Sign-in callback received: success = $success")
+                    if (success) {
+                        println("🎉 Calling action() callback")
+                        action()
+                    } else {
+                        println("❌ Sign-in failed, not calling action()")
+                    }
+                }
+            } else {
+                println("❌ Context is not an Activity - cannot perform Google Sign-In")
+                println("   Context class: ${context::class.java.name}")
+            }
         },
         modifier = modifier
             .fillMaxWidth()

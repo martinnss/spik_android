@@ -66,10 +66,30 @@ class LocalDataService(private val context: Context) {
         return try {
             val progress = json.decodeFromString<LocalUserProgress>(jsonString)
             println("📱 [LocalData] Loaded cached user progress")
+            
+            // Validate the data integrity
+            validateUserProgress(progress)
+            
             progress
         } catch (error: Exception) {
             println("❌ [LocalData] Failed to decode progress: $error")
-            LocalUserProgress()
+            
+            // Clear corrupted data and return default
+            println("🗑️ [LocalData] Clearing corrupted progress data")
+            sharedPreferences.edit().remove(progressKey).apply()
+            
+            // Create default progress
+            val defaultProgress = LocalUserProgress()
+            
+            // Try to save the default to ensure the storage works
+            try {
+                saveUserProgress(defaultProgress)
+                println("✅ [LocalData] Saved default progress after corruption")
+            } catch (saveError: Exception) {
+                println("❌ [LocalData] Failed to save default progress: $saveError")
+            }
+            
+            defaultProgress
         }
     }
     
@@ -161,6 +181,60 @@ class LocalDataService(private val context: Context) {
         } else {
             // Move to next tier
             (tier + 1) * 1000 + 1
+        }
+    }
+    
+    // MARK: - Data Validation
+    
+    private fun validateUserProgress(progress: LocalUserProgress) {
+        // Validate that completed levels are also in unlocked levels
+        val invalidCompletedLevels = progress.completedLevels.filter { levelId ->
+            !progress.unlockedLevels.contains(levelId)
+        }
+        
+        if (invalidCompletedLevels.isNotEmpty()) {
+            println("⚠️ [LocalData] Found completed levels that are not unlocked: $invalidCompletedLevels")
+            // Auto-fix by adding them to unlocked levels
+            val fixedProgress = progress.copy(
+                unlockedLevels = progress.unlockedLevels + invalidCompletedLevels
+            )
+            saveUserProgress(fixedProgress)
+            println("🔧 [LocalData] Auto-fixed progress by unlocking completed levels")
+        }
+        
+        // Validate experience is not negative
+        if (progress.totalExperience < 0) {
+            println("⚠️ [LocalData] Invalid total experience: ${progress.totalExperience}")
+            val fixedProgress = progress.copy(totalExperience = 0)
+            saveUserProgress(fixedProgress)
+            println("🔧 [LocalData] Auto-fixed negative experience")
+        }
+        
+        // Validate current level is unlocked
+        if (!progress.unlockedLevels.contains(progress.currentLevel)) {
+            println("⚠️ [LocalData] Current level ${progress.currentLevel} is not in unlocked levels")
+            val fixedProgress = progress.copy(
+                unlockedLevels = progress.unlockedLevels + progress.currentLevel
+            )
+            saveUserProgress(fixedProgress)
+            println("🔧 [LocalData] Auto-fixed by unlocking current level")
+        }
+    }
+    
+    // MARK: - Corruption Recovery
+    
+    fun validateAndRepairData(): Boolean {
+        return try {
+            println("🔧 [LocalData] Performing data validation and repair...")
+            
+            val progress = loadUserProgress()
+            validateUserProgress(progress)
+            
+            println("✅ [LocalData] Data validation and repair completed successfully")
+            true
+        } catch (e: Exception) {
+            println("❌ [LocalData] Data validation and repair failed: ${e.message}")
+            false
         }
     }
 }
