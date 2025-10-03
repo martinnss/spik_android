@@ -49,7 +49,7 @@ fun CompletionStepView(
     ) {
         Spacer(modifier = Modifier.weight(1f))
         
-        // Success animation and message
+        // Clean success message
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -58,9 +58,9 @@ fun CompletionStepView(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,
                 modifier = Modifier
-                    .size(100.dp)
+                    .size(80.dp)
                     .graphicsLayer(scaleX = scale, scaleY = scale),
-                tint = Color.Unspecified // This allows the gradient to show through
+                tint = Color(0xFFFF9500)
             )
             
             Column(
@@ -68,7 +68,7 @@ fun CompletionStepView(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "¡Todo listo!",
+                    text = "¡Todo listo, ${userProfile.name}!",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -76,7 +76,7 @@ fun CompletionStepView(
                 )
                 
                 Text(
-                    text = "¡Bienvenido a tu viaje de aprendizaje de oratoria, ${userProfile.name}!",
+                    text = "Bienvenido a tu viaje de aprendizaje de inglés",
                     fontSize = 16.sp,
                     color = Color(0xFF8E8E93), // TextSecondary
                     textAlign = TextAlign.Center,
@@ -85,7 +85,7 @@ fun CompletionStepView(
             }
         }
         
-        // Summary of selections
+        // User profile summary
         Column(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
@@ -118,7 +118,7 @@ fun CompletionStepView(
                     userProfile.englishLevel?.let { level ->
                         ProfileSummaryRow(
                             icon = Icons.Default.TrendingUp,
-                            title = "Nivel de Oratoria",
+                            title = "Nivel de Inglés",
                             value = level.rawValue
                         )
                     }
@@ -145,7 +145,7 @@ private fun ProfileSummaryRow(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
-            tint = Color(0xFF007AFF) // PrimaryBlue
+            tint = Color(0xFFFF9500) // WarningOrange
         )
         
         Text(

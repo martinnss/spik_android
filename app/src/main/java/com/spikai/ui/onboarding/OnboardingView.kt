@@ -121,7 +121,10 @@ private fun ProgressBarSection(progress: Float) {
     )
     
     Column(
-        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(top = 60.dp, bottom = 16.dp), // Increased top padding for better safe area handling
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         LinearProgressIndicator(
@@ -129,7 +132,7 @@ private fun ProgressBarSection(progress: Float) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(4.dp),
-            color = Color(0xFF007AFF), // PrimaryBlue
+            color = Color(0xFFFF9500), // WarningOrange
             trackColor = Color(0xFFE5E5EA),
         )
     }
@@ -171,18 +174,19 @@ private fun NavigationButtonsSection(
         if (shouldShowBackButton) {
             Button(
                 onClick = onBackClick,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp), // Fixed height for consistency
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF007AFF).copy(alpha = 0.1f), // BlueTransparent
-                    contentColor = Color(0xFF007AFF)
+                    containerColor = Color(0xFFFF9500).copy(alpha = 0.1f), // OrangeTransparent
+                    contentColor = Color(0xFFFF9500)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     text = "Atrás",
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -190,9 +194,11 @@ private fun NavigationButtonsSection(
         Button(
             onClick = onNextClick,
             enabled = currentCanProceed && !isLoading,
-            modifier = Modifier.weight(if (shouldShowBackButton) 1f else 2f),
+            modifier = Modifier
+                .weight(if (shouldShowBackButton) 1f else 2f)
+                .height(56.dp), // Fixed height for consistency
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (currentCanProceed) Color(0xFF007AFF) else Color(0xFFBEBEC0),
+                containerColor = if (currentCanProceed) Color(0xFFFF9500) else Color(0xFFBEBEC0),
                 contentColor = Color.White,
                 disabledContainerColor = Color(0xFFBEBEC0),
                 disabledContentColor = Color.White

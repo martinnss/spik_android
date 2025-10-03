@@ -35,32 +35,39 @@ fun LevelDetailView(
     // TODO: Implement NavigationCoordinator equivalent
     // val navigationCoordinator = NavigationCoordinator.shared
     
-    Column(
-        modifier = Modifier.fillMaxSize()
+    // Full-screen modal with solid background
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF2F2F7)) // Solid background color
     ) {
-        // Top bar
-        TopAppBar(
-            title = { 
-                Text(
-                    text = level.title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            },
-            actions = {
-                TextButton(onClick = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Top bar
+            TopAppBar(
+                title = { 
                     Text(
-                        text = "Cerrar",
-                        color = Color(0xFF007AFF) // PrimaryBlue
+                        text = level.title,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium
                     )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color(0xFFF2F2F7) // BackgroundSecondary
+                },
+                actions = {
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = "Cerrar",
+                            color = Color(0xFFFF9500) // Orange primary color
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFFF2F2F7) // BackgroundSecondary
+                ),
+                modifier = Modifier.padding(top = 50.dp) // Safe area padding
             )
-        )
-        
-        Box(modifier = Modifier.fillMaxSize()) {
+            
+            Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -94,6 +101,7 @@ fun LevelDetailView(
                     startLevel(level, onStartConversation)
                 }
             )
+        }
         }
     }
     
@@ -130,7 +138,7 @@ private fun LevelHeader(level: CareerLevel) {
                     .clip(CircleShape)
                     .background(
                         if (level.isCompleted) Color(0xFF34C759) // StatusConnected
-                        else Color(0xFF007AFF) // PrimaryBlue
+                        else Color(0xFFFF9500) // Orange primary color
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -249,7 +257,7 @@ private fun SkillsSection(level: CareerLevel) {
                             Card(
                                 shape = RoundedCornerShape(8.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFF007AFF).copy(alpha = 0.1f) // PrimaryBlue with opacity
+                                    containerColor = Color(0xFFFF9500).copy(alpha = 0.1f) // Orange primary color with opacity
                                 ),
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -257,7 +265,7 @@ private fun SkillsSection(level: CareerLevel) {
                                     text = skill,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF007AFF), // PrimaryBlue
+                                    color = Color(0xFFFF9500), // Orange primary color
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     textAlign = TextAlign.Center
                                 )
@@ -290,8 +298,7 @@ private fun ActionButton(
                 onClick = onStartLevel,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (level.isCompleted) Color(0xFFFF9500) // StatusConnecting
-                    else Color(0xFF007AFF) // PrimaryBlue
+                    containerColor = Color(0xFFFF9500) // Orange primary color for both states
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {

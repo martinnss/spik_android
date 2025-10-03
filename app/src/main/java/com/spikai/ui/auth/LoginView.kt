@@ -34,11 +34,7 @@ fun LoginView(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     
-    // TODO: Implement GoogleSignInManager equivalent
-    // val googleSignInManager = remember { GoogleSignInManager() }
-    // TODO: Implement ErrorHandlingService equivalent  
-    // val errorHandler = ErrorHandlingService.shared
-    
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -46,7 +42,7 @@ fun LoginView(
                 Brush.linearGradient(
                     colors = listOf(
                         Color(0xFF1C1C1E).copy(alpha = 0.8f), // TextPrimary with opacity
-                        Color(0xFF6B46C1).copy(alpha = 0.6f)  // PrimaryPurple with opacity
+                        Color(0xFFFF9500).copy(alpha = 0.6f)  // Orange primary color with opacity
                     )
                 )
             )
@@ -109,8 +105,8 @@ private fun HeaderSection(
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF007AFF).copy(alpha = 0.8f), // PrimaryBlue
-                                Color(0xFF6B46C1).copy(alpha = 0.8f)  // PrimaryPurple
+                                Color(0xFFFF9500).copy(alpha = 0.9f), // Orange primary color
+                                Color(0xFFFF9500).copy(alpha = 0.7f)  // Orange primary color darker
                             )
                         ),
                         shape = CircleShape

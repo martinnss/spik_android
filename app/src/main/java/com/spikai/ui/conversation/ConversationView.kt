@@ -58,9 +58,9 @@ fun ConversationView(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF1a1a2e),
-                        Color(0xFF16213e),
-                        Color(0xFF0f3460)
+                        Color(0xFF1C1C1E).copy(alpha = 0.9f), // Dark background
+                        Color(0xFFFF9500).copy(alpha = 0.8f), // Orange primary color
+                        Color(0xFFFF9500).copy(alpha = 0.6f)  // Orange primary color lighter
                     )
                 )
             )

@@ -102,7 +102,7 @@ private fun AnswerOptionCard(
             containerColor = Color(0xFFF2F2F7) // BackgroundSecondary
         ),
         border = if (isSelected) {
-            BorderStroke(2.dp, Color(0xFF007AFF)) // PrimaryBlue
+            BorderStroke(2.dp, Color(0xFFFF9500)) // WarningOrange
         } else {
             BorderStroke(1.dp, Color(0xFFE5E5EA)) // BorderLight
         }
@@ -120,7 +120,7 @@ private fun AnswerOptionCard(
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(
-                        if (isSelected) Color(0xFF007AFF) else Color(0xFFE5E5EA)
+                        if (isSelected) Color(0xFFFF9500) else Color(0xFFE5E5EA)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -163,7 +163,7 @@ private fun AnswerOptionCard(
                     .clip(CircleShape)
                     .border(
                         2.dp,
-                        if (isSelected) Color(0xFF007AFF) else Color(0xFFBEBEC0),
+                        if (isSelected) Color(0xFFFF9500) else Color(0xFFBEBEC0),
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -173,7 +173,7 @@ private fun AnswerOptionCard(
                         modifier = Modifier
                             .size(12.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF007AFF))
+                            .background(Color(0xFFFF9500))
                     )
                 }
             }

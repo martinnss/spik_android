@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.spikai.ui.theme.SpikAIColors
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spikai.viewmodel.OnboardingViewModel
+import com.spikai.R
 
 @Composable
 fun WelcomeStepView(
@@ -42,31 +43,19 @@ fun WelcomeStepView(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // TODO: Replace with actual SpikLogo resource
+            // SpikAI Logo
             Box(
                 modifier = Modifier
                     .size(130.dp)
                     .clip(CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                // Placeholder for SpikLogo - replace with actual image resource
-                Card(
+                Image(
+                    painter = painterResource(id = R.drawable.spik_logo),
+                    contentDescription = "SpikAI Logo",
                     modifier = Modifier.size(130.dp),
-                    shape = CircleShape,
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF007AFF))
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "SPIK",
-                            color = Color.White,
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                    contentScale = ContentScale.Fit
+                )
             }
             
             Column(
@@ -114,7 +103,7 @@ fun WelcomeStepView(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF007AFF),
+                    focusedBorderColor = Color(0xFFFF9500),
                     unfocusedBorderColor = Color(0xFFE5E5EA),
                     focusedContainerColor = Color(0xFFF2F2F7),
                     unfocusedContainerColor = Color(0xFFF2F2F7)

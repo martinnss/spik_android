@@ -30,6 +30,7 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileView(
+    isSignedIn: Boolean = false,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -41,7 +42,6 @@ fun ProfileView(
     
     // TODO: Implement GoogleSignInManager equivalent
     // val googleSignInManager = GoogleSignInManager()
-    val isSignedIn = false // Placeholder
     
     LaunchedEffect(Unit) {
         loadUserProfile { profile ->
@@ -49,64 +49,72 @@ fun ProfileView(
         }
     }
     
-    Column(
-        modifier = Modifier.fillMaxSize()
+    // Full-screen modal with solid background
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFFFFFFF)) // Solid white background
     ) {
-        // Top bar
-        TopAppBar(
-            title = { 
-                Text(
-                    text = "Mi Perfil",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            actions = {
-                TextButton(onClick = onDismiss) {
-                    Text(
-                        text = "Cerrar",
-                        color = Color(0xFF007AFF) // PrimaryBlue
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color(0xFFFFFFFF) // BackgroundPrimary
-            )
-        )
-        
-        // Scrollable content
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Avatar y información básica
-            ProfileHeader(
-                userProfile = userProfile,
-                isSignedIn = isSignedIn
+            // Top bar
+            TopAppBar(
+                title = { 
+                    Text(
+                        text = "Mi Perfil",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                actions = {
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = "Cerrar",
+                            color = Color(0xFF007AFF) // PrimaryBlue
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFFFFFFFF) // BackgroundPrimary
+                ),
+                modifier = Modifier.padding(top = 50.dp) // Safe area padding
             )
             
-            // Configuraciones
-            SettingsSection(
-                isSignedIn = isSignedIn,
-                isDeletingAccount = isDeletingAccount,
-                onPrivacyPolicyClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.spik.cl/privacy"))
-                    context.startActivity(intent)
-                },
-                onTermsClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.spik.cl/terms"))
-                    context.startActivity(intent)
-                },
-                onSignOutClick = { showingSignOutAlert = true },
-                onDeleteAccountClick = { showingDeleteAccountAlert = true }
-            )
+            // Scrollable content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                // Avatar y información básica
+                ProfileHeader(
+                    userProfile = userProfile,
+                    isSignedIn = isSignedIn
+                )
+                
+                // Configuraciones
+                SettingsSection(
+                    isSignedIn = isSignedIn,
+                    isDeletingAccount = isDeletingAccount,
+                    onPrivacyPolicyClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.spik.cl/privacy"))
+                        context.startActivity(intent)
+                    },
+                    onTermsClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.spik.cl/terms"))
+                        context.startActivity(intent)
+                    },
+                    onSignOutClick = { showingSignOutAlert = true },
+                    onDeleteAccountClick = { showingDeleteAccountAlert = true }
+                )
+            }
         }
     }
     
-    // Alert dialogs
+    // Alert dialogs positioned above the main content
     if (showingSignOutAlert) {
         AlertDialog(
             onDismissRequest = { showingSignOutAlert = false },
@@ -131,7 +139,7 @@ fun ProfileView(
             }
         )
     }
-    
+
     if (showingDeleteAccountAlert) {
         AlertDialog(
             onDismissRequest = { showingDeleteAccountAlert = false },
@@ -158,7 +166,7 @@ fun ProfileView(
             }
         )
     }
-    
+
     if (showingDeleteSuccessAlert) {
         AlertDialog(
             onDismissRequest = { showingDeleteSuccessAlert = false },
@@ -322,7 +330,7 @@ private fun SettingsSection(
                     modifier = Modifier.padding(start = 44.dp),
                     color = Color(0xFFE5E5EA) // BorderLight
                 )
-                
+                 /*
                 SettingRow(
                     icon = Icons.Default.DeleteForever,
                     title = "Eliminar Cuenta",
@@ -330,7 +338,7 @@ private fun SettingsSection(
                     showArrow = false,
                     enabled = !isDeletingAccount,
                     onClick = onDeleteAccountClick
-                )
+                )*/
             }
         }
     }
@@ -359,14 +367,14 @@ private fun SettingRow(
             tint = if (enabled) color else Color(0xFF8E8E93),
             modifier = Modifier.size(20.dp)
         )
-        
+
         Text(
             text = title,
             fontSize = 16.sp,
             color = if (enabled) Color(0xFF1C1C1E) else Color(0xFF8E8E93), // TextPrimary or TextSecondary
             modifier = Modifier.weight(1f)
         )
-        
+
         if (showArrow) {
             Icon(
                 imageVector = Icons.Default.OpenInNew,
@@ -383,13 +391,13 @@ private fun SettingRow(
 private suspend fun loadUserProfile(onLoaded: (UserProfile) -> Unit) {
     // TODO: Load from SharedPreferences equivalent
     delay(100) // Simulate loading
-    
+
     // Fallback for when no profile exists
     val profile = UserProfile().apply {
         englishLevel = com.spikai.model.EnglishLevel.PRINCIPIANTE
         name = "Usuario Spik"
     }
-    
+
     println("✅ [ProfileView] User profile loaded: ${profile.englishLevel?.rawValue ?: "unknown"}")
     onLoaded(profile)
 }
@@ -397,14 +405,14 @@ private suspend fun loadUserProfile(onLoaded: (UserProfile) -> Unit) {
 private fun signOut(onProfileReset: (UserProfile) -> Unit) {
     println("🚪 [ProfileView] User signing out")
     // TODO: Implement GoogleSignInManager.signOut()
-    
+
     // TODO: Clear user profile from SharedPreferences
     // Reset to default profile
     val defaultProfile = UserProfile().apply {
         englishLevel = com.spikai.model.EnglishLevel.PRINCIPIANTE
         name = "Usuario Spik"
     }
-    
+
     onProfileReset(defaultProfile)
     println("✅ [ProfileView] Sign out completed, profile reset")
 }
@@ -415,13 +423,13 @@ private fun deleteAccount(
     onSuccess: () -> Unit
 ) {
     if (isDeletingAccount) return
-    
+
     println("🗑️ [ProfileView] Starting account deletion process")
     onStateChange(true)
-    
+
     // TODO: Implement AccountDeletionService equivalent
     // val success = AccountDeletionService.shared.requestAccountDeletion()
-    
+
     // Simulate async operation
     // For now, assume success
     onStateChange(false)

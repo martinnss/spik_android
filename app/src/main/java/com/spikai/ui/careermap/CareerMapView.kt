@@ -30,6 +30,7 @@ import com.spikai.model.CareerLevel
 import com.spikai.model.EnglishLevel
 import com.spikai.model.UserProfile
 import com.spikai.service.ErrorHandlingService
+import com.spikai.ui.auth.LoginView
 import com.spikai.ui.conversation.ConversationView
 import com.spikai.viewmodel.CareerMapViewModel
 import com.spikai.viewmodel.ConversationViewModel
@@ -45,6 +46,10 @@ fun CareerMapView(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val isLevelDetailShowing by viewModel.isLevelDetailShowing.collectAsStateWithLifecycle()
+    
+    // Authentication state
+    var isUserSignedIn by remember { mutableStateOf(false) }
+    var isCheckingAuth by remember { mutableStateOf(true) }
     
     // Local state
     var showingProfile by remember { mutableStateOf(false) }
@@ -66,13 +71,23 @@ fun CareerMapView(
     // TODO: Implement ErrorHandlingService equivalent
     // val errorHandler = ErrorHandlingService.shared
     
-    LaunchedEffect(Unit, retryTrigger) {
-        loadUserProfile { profile ->
-            userProfile = profile
+    // Check authentication status on launch
+    LaunchedEffect(Unit) {
+        checkAuthenticationStatus { isSignedIn ->
+            isUserSignedIn = isSignedIn
+            isCheckingAuth = false
         }
-        // TODO: Implement level unlock listener
-        // setupLevelUnlockListener()
-        viewModel.loadCareerLevels()
+    }
+    
+    LaunchedEffect(Unit, retryTrigger) {
+        if (isUserSignedIn) {
+            loadUserProfile { profile ->
+                userProfile = profile
+            }
+            // TODO: Implement level unlock listener
+            // setupLevelUnlockListener()
+            viewModel.loadCareerLevels()
+        }
     }
     
     // Monitor completed levels for animation
@@ -83,6 +98,14 @@ fun CareerMapView(
     
     Box(modifier = Modifier.fillMaxSize()) {
         when {
+            isCheckingAuth -> AuthCheckingView()
+            !isUserSignedIn -> LoginView(
+                onSuccessfulLogin = {
+                    isUserSignedIn = true
+                    retryTrigger++
+                },
+                onDismiss = { /* Login is required, no dismiss */ }
+            )
             isLoading -> LoadingView()
             !errorMessage.isNullOrEmpty() -> ErrorView(
                 message = errorMessage ?: "",
@@ -105,57 +128,60 @@ fun CareerMapView(
         }
     }
     
-    // Sheets/Dialogs
-    selectedLevel?.let { level ->
-        if (isLevelDetailShowing) {
-            LevelDetailView(
-                level = level,
+    // Sheets/Dialogs - Only show when user is signed in
+    if (isUserSignedIn) {
+        selectedLevel?.let { level ->
+            if (isLevelDetailShowing) {
+                LevelDetailView(
+                    level = level,
+                    viewModel = viewModel,
+                    onDismiss = {
+                        viewModel.dismissLevelDetail()
+                    },
+                    onStartConversation = { levelId, levelTitle ->
+                        println("🎮 [CareerMapView] Starting conversation for level $levelId: $levelTitle")
+                        selectedLevelForConversation = Pair(levelId, levelTitle)
+                        showingConversation = true
+                        viewModel.dismissLevelDetail()
+                    }
+                )
+            }
+        }
+        
+        if (showingProfile) {
+            ProfileView(
+                isSignedIn = isUserSignedIn,
+                onDismiss = { showingProfile = false }
+            )
+        }
+        
+        if (showingPathSelector) {
+            PathSelectorView(
                 viewModel = viewModel,
-                onDismiss = {
-                    viewModel.dismissLevelDetail()
-                },
-                onStartConversation = { levelId, levelTitle ->
-                    println("🎮 [CareerMapView] Starting conversation for level $levelId: $levelTitle")
-                    selectedLevelForConversation = Pair(levelId, levelTitle)
-                    showingConversation = true
-                    viewModel.dismissLevelDetail()
+                onDismiss = { showingPathSelector = false }
+            )
+        }
+        
+        if (showingLanguageSelector) {
+            LanguageSelectorView(
+                onDismiss = { showingLanguageSelector = false }
+            )
+        }
+        
+        // Conversation View
+        if (showingConversation && selectedLevelForConversation != null) {
+            ConversationView(
+                viewModel = ConversationViewModel(
+                    context = LocalContext.current,
+                    levelId = selectedLevelForConversation!!.first
+                ),
+                onBack = {
+                    println("🔙 [CareerMapView] Closing conversation, returning to career map")
+                    showingConversation = false
+                    selectedLevelForConversation = null
                 }
             )
         }
-    }
-    
-    if (showingProfile) {
-        ProfileView(
-            onDismiss = { showingProfile = false }
-        )
-    }
-    
-    if (showingPathSelector) {
-        PathSelectorView(
-            viewModel = viewModel,
-            onDismiss = { showingPathSelector = false }
-        )
-    }
-    
-    if (showingLanguageSelector) {
-        LanguageSelectorView(
-            onDismiss = { showingLanguageSelector = false }
-        )
-    }
-    
-    // Conversation View
-    if (showingConversation && selectedLevelForConversation != null) {
-        ConversationView(
-            viewModel = ConversationViewModel(
-                context = LocalContext.current,
-                levelId = selectedLevelForConversation!!.first
-            ),
-            onBack = {
-                println("🔙 [CareerMapView] Closing conversation, returning to career map")
-                showingConversation = false
-                selectedLevelForConversation = null
-            }
-        )
     }
     
     // TODO: Implement error alert
@@ -218,7 +244,10 @@ private fun PathSelectorView(
                 }
             }
         },
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier
+            .padding(16.dp)
+            .widthIn(min = 400.dp, max = 600.dp)
+            .fillMaxWidth(0.95f)
     )
 }
 
@@ -430,7 +459,10 @@ private fun LanguageSelectorView(
                 }
             }
         },
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier
+            .padding(16.dp)
+            .widthIn(min = 400.dp, max = 600.dp)
+            .fillMaxWidth(0.95f)
     )
 }
 
@@ -594,15 +626,9 @@ private fun MainContent(
         item {
             HeaderSection(
                 userProfile = userProfile,
-                onProfileClick = onProfileClick
-            )
-        }
-        
-        item {
-            UnitSection(
-                userProfile = userProfile,
-                onPathSelectorClick = onPathSelectorClick,
-                onLanguageSelectorClick = onLanguageSelectorClick
+                onProfileClick = onProfileClick,
+                onLanguageSelectorClick = onLanguageSelectorClick,
+                onPathSelectorClick = onPathSelectorClick
             )
         }
         
@@ -623,86 +649,77 @@ private fun MainContent(
 @Composable
 private fun HeaderSection(
     userProfile: UserProfile,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onLanguageSelectorClick: () -> Unit,
+    onPathSelectorClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp)
+            .padding(top = 50.dp, bottom = 8.dp), // Added top padding for safe area
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        // Language Selector Button (US Flag)
+        Button(
+            onClick = onLanguageSelectorClick,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent
+            ),
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.size(32.dp)
+        ) {
             Text(
-                text = "¡Hola, ${userProfile.name}!",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1C1C1E) // TextPrimary
-            )
-            Text(
-                text = "Continúa tu progreso",
-                fontSize = 14.sp,
-                color = Color(0xFF8E8E93) // TextSecondary
+                text = "🇺🇸",
+                fontSize = 20.sp
             )
         }
         
-        IconButton(onClick = onProfileClick) {
+        // User Level Badge (Orange button)
+        Button(
+            onClick = onPathSelectorClick,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFF9500) // WarningOrange
+            ),
+            shape = RoundedCornerShape(16.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = (userProfile.englishLevel ?: EnglishLevel.PRINCIPIANTE).pathDisplayText(),
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Icon(
+                    imageVector = Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+        
+        // Profile Button (Orange)
+        Button(
+            onClick = onProfileClick,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFF9500) // WarningOrange
+            ),
+            shape = CircleShape,
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.size(32.dp)
+        ) {
             Icon(
                 imageVector = Icons.Default.Person,
                 contentDescription = "Perfil",
-                tint = Color(0xFF007AFF), // PrimaryBlue
-                modifier = Modifier.size(28.dp)
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
             )
-        }
-    }
-}
-
-@Composable
-private fun UnitSection(
-    userProfile: UserProfile,
-    onPathSelectorClick: () -> Unit,
-    onLanguageSelectorClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(
-                text = "Unidad Actual",
-                fontSize = 12.sp,
-                color = Color(0xFF8E8E93), // TextSecondary
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = (userProfile.englishLevel ?: EnglishLevel.PRINCIPIANTE).pathDisplayText(),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1C1C1E) // TextPrimary
-            )
-        }
-        
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            IconButton(onClick = onPathSelectorClick) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Cambiar nivel",
-                    tint = Color(0xFF8E8E93) // TextSecondary
-                )
-            }
-            
-            IconButton(onClick = onLanguageSelectorClick) {
-                Icon(
-                    imageVector = Icons.Default.Public,
-                    contentDescription = "Cambiar idioma",
-                    tint = Color(0xFF8E8E93) // TextSecondary
-                )
-            }
         }
     }
 }
@@ -762,21 +779,27 @@ private fun PathConnector(
     val shadowColor = connectorShadowColor(nextLevel, lineAnimating, animatingUnlockedLevelId)
     val shadowRadius = connectorShadowRadius(nextLevel, lineAnimating, animatingUnlockedLevelId)
     
-    Box(
-        modifier = Modifier
-            .width(width.dp)
-            .height(40.dp)
-            .shadow(
-                elevation = shadowRadius.dp,
-                shape = RoundedCornerShape(width.dp / 2),
-                ambientColor = shadowColor,
-                spotColor = shadowColor
-            )
-            .background(
-                color = color,
-                shape = RoundedCornerShape(width.dp / 2)
-            )
-    )
+    // Center the connector line
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .width(width.dp)
+                .height(40.dp)
+                .shadow(
+                    elevation = shadowRadius.dp,
+                    shape = RoundedCornerShape(width.dp / 2),
+                    ambientColor = shadowColor,
+                    spotColor = shadowColor
+                )
+                .background(
+                    color = color,
+                    shape = RoundedCornerShape(width.dp / 2)
+                )
+        )
+    }
 }
 
 // Helper functions for connector styling
@@ -876,6 +899,36 @@ private suspend fun loadUserProfile(onLoaded: (UserProfile) -> Unit) {
     // Load from SharedPreferences equivalent
     delay(100) // Simulate loading
     onLoaded(UserProfile()) // Default profile for now
+}
+
+// TODO: Implement authentication status check
+private suspend fun checkAuthenticationStatus(onResult: (Boolean) -> Unit) {
+    delay(100) // Simulate auth check
+    // TODO: Implement actual authentication check with GoogleSignInManager
+    // For now, always return false to force login until Google Sign-In is implemented
+    onResult(false)
+}
+
+@Composable
+private fun AuthCheckingView() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            CircularProgressIndicator(
+                color = Color(0xFF007AFF) // PrimaryBlue
+            )
+            Text(
+                text = "Verificando autenticación...",
+                fontSize = 16.sp,
+                color = Color(0xFF8E8E93) // TextSecondary
+            )
+        }
+    }
 }
 
 @Preview(showBackground = true)

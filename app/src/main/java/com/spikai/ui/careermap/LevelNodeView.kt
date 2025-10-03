@@ -133,20 +133,13 @@ fun LevelNodeView(
                 // Level information
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = level.title,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF1C1C1E), // TextPrimary
-                        maxLines = 2
-                    )
-                    
-                    Text(
-                        text = level.description,
-                        fontSize = 12.sp,
-                        color = Color(0xFF8E8E93), // TextSecondary
                         maxLines = 2
                     )
                 }
