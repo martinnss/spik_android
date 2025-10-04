@@ -1,5 +1,8 @@
 package com.spikai.ui.conversation
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -44,6 +47,20 @@ fun ConversationView(
 
     val configuration = LocalConfiguration.current
     val listState = rememberLazyListState()
+
+    // Request microphone permission for WebRTC audio recording
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            println("⚠️ [ConversationView] Microphone permission denied")
+        }
+    }
+
+    // Request permission on first composition
+    LaunchedEffect(Unit) {
+        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
 
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(messages.size) {

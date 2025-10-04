@@ -380,22 +380,26 @@ class WebRTCManager(private val context: Context) : ViewModel() {
             return
         }
         
-        val realtimeEvent = mapOf(
-            "type" to "conversation.item.create",
-            "item" to mapOf(
-                "type" to "message",
-                "role" to "user",
-                "content" to listOf(
-                    mapOf(
-                        "type" to "input_text",
-                        "text" to message
-                    )
-                )
-            )
-        )
+        // Build JSON manually to avoid serialization issues with nested maps
+        val jsonString = buildString {
+            append("{")
+            append("\"type\":\"conversation.item.create\",")
+            append("\"item\":{")
+            append("\"type\":\"message\",")
+            append("\"role\":\"user\",")
+            append("\"content\":[")
+            append("{")
+            append("\"type\":\"input_text\",")
+            append("\"text\":\"")
+            append(message.replace("\"", "\\\"").replace("\n", "\\n"))
+            append("\"")
+            append("}")
+            append("]")
+            append("}")
+            append("}")
+        }
         
         try {
-            val jsonString = json.encodeToString(realtimeEvent)
             val buffer = DataChannel.Buffer(
                 java.nio.ByteBuffer.wrap(jsonString.toByteArray(Charsets.UTF_8)),
                 false
@@ -458,27 +462,35 @@ class WebRTCManager(private val context: Context) : ViewModel() {
             return
         }
         
-        val sessionUpdate = mapOf(
-            "type" to "session.update",
-            "session" to mapOf(
-                "modalities" to listOf("text", "audio"),
-                "instructions" to systemInstructions,
-                "voice" to voice,
-                "input_audio_format" to "pcm16",
-                "output_audio_format" to "pcm16",
-                "input_audio_transcription" to mapOf(
-                    "model" to "whisper-1",
-                    "language" to "en"  // Force English transcription
-                ),
-                "turn_detection" to mapOf(
-                    "create_response" to true
-                ),
-                "max_response_output_tokens" to "inf"
-            )
-        )
+        // Build JSON manually to avoid serialization issues with nested maps
+        val jsonString = buildString {
+            append("{")
+            append("\"type\":\"session.update\",")
+            append("\"session\":{")
+            append("\"modalities\":[\"text\",\"audio\"],")
+            append("\"instructions\":\"")
+            append(systemInstructions.replace("\"", "\\\"").replace("\n", "\\n"))
+            append("\",")
+            append("\"voice\":\"$voice\",")
+            append("\"input_audio_format\":\"pcm16\",")
+            append("\"output_audio_format\":\"pcm16\",")
+            append("\"input_audio_transcription\":{")
+            append("\"model\":\"whisper-1\",")
+            append("\"language\":\"en\"")
+            append("},")
+            append("\"turn_detection\":{")
+            append("\"type\":\"server_vad\",")
+            append("\"threshold\":0.5,")
+            append("\"prefix_padding_ms\":300,")
+            append("\"silence_duration_ms\":2100,")
+            append("\"create_response\":true")
+            append("},")
+            append("\"max_response_output_tokens\":\"inf\"")
+            append("}")
+            append("}")
+        }
         
         try {
-            val jsonString = json.encodeToString(sessionUpdate)
             val buffer = DataChannel.Buffer(
                 java.nio.ByteBuffer.wrap(jsonString.toByteArray(Charsets.UTF_8)),
                 false
@@ -497,7 +509,7 @@ class WebRTCManager(private val context: Context) : ViewModel() {
             }
             
         } catch (e: Exception) {
-            println("❌ [WebRTCManager] Failed to serialize session.update JSON: ${e.message}")
+            println("❌ [WebRTCManager] Failed to send session.update: ${e.message}")
         }
     }
     
@@ -558,19 +570,23 @@ class WebRTCManager(private val context: Context) : ViewModel() {
         
         val url = "$backendURL/get-ephemeral-token"
         
-        // Create request body with level ID and speed
-        val requestBody = mutableMapOf<String, Any>()
-        levelId?.let { 
-            requestBody["code"] = it
-            println("📤 [WebRTCManager] Sending level ID: $it")
+        // Create request body JSON manually to avoid serialization issues
+        val jsonBody = buildString {
+            append("{")
+            val parts = mutableListOf<String>()
+            levelId?.let { 
+                parts.add("\"code\":$it")
+                println("📤 [WebRTCManager] Sending level ID: $it")
+            }
+            // Always send speed parameter
+            parts.add("\"speed\":$speed")
+            println("📤 [WebRTCManager] Sending speed: $speed")
+            
+            append(parts.joinToString(","))
+            append("}")
         }
         
-        // Always send speed parameter
-        requestBody["speed"] = speed
-        println("📤 [WebRTCManager] Sending speed: $speed")
-        
-        val jsonString = json.encodeToString(requestBody)
-        val body = jsonString.toRequestBody("application/json".toMediaType())
+        val body = jsonBody.toRequestBody("application/json".toMediaType())
         
         val request = Request.Builder()
             .url(url)
@@ -767,9 +783,18 @@ class WebRTCManager(private val context: Context) : ViewModel() {
             val factory = peerConnectionFactory ?: throw Exception("PeerConnectionFactory is null")
             
             val constraints = MediaConstraints().apply {
-                mandatory.add(MediaConstraints.KeyValuePair("googNoiseReduction", "true"))
+                // Mandatory constraints - match Swift implementation
                 mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation", "true"))
                 mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googTypingNoiseDetection", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googAudioMirroring", "false"))
+                mandatory.add(MediaConstraints.KeyValuePair("googNoiseReduction", "true"))
+                
+                // Optional constraints - enhanced versions
+                optional.add(MediaConstraints.KeyValuePair("googEchoCancellation2", "true"))
+                optional.add(MediaConstraints.KeyValuePair("googAutoGainControl2", "true"))
             }
             
             val audioSource = factory.createAudioSource(constraints)
@@ -778,7 +803,7 @@ class WebRTCManager(private val context: Context) : ViewModel() {
             pc.addTrack(localAudioTrack, listOf("local_stream"))
             audioTrack = localAudioTrack
             
-            println("✅ [WebRTCManager] Local audio configured successfully")
+            println("✅ [WebRTCManager] Local audio configured successfully with enhanced constraints")
             
         } catch (e: Exception) {
             println("❌ [WebRTCManager] Error setting up local audio: ${e.message}")
@@ -831,12 +856,25 @@ class WebRTCManager(private val context: Context) : ViewModel() {
     }
     
     private suspend fun handleIncomingJSON(jsonString: String) {
-        println("📨 [WebRTCManager] Received JSON:\n$jsonString\n")
+        val eventDict = json.parseToJsonElement(jsonString).jsonObject
+        val eventType = eventDict["type"]?.jsonPrimitive?.content ?: return
+        
+        // Log important audio/speech events more prominently
+        when (eventType) {
+            "input_audio_buffer.committed",
+            "input_audio_buffer.speech_started",
+            "input_audio_buffer.speech_stopped",
+            "conversation.item.input_audio_transcription.completed",
+            "conversation.item.input_audio_transcription.failed" -> {
+                println("🎙️ [WebRTCManager] AUDIO EVENT: $eventType")
+                println("📨 [WebRTCManager] Full event: $jsonString")
+            }
+            else -> {
+                println("📨 [WebRTCManager] Received JSON:\n$jsonString\n")
+            }
+        }
         
         try {
-            val eventDict = json.parseToJsonElement(jsonString).jsonObject
-            val eventType = eventDict["type"]?.jsonPrimitive?.content ?: return
-            
             _eventTypeStr.value = eventType
             
             when (eventType) {

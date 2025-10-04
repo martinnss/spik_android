@@ -20,4 +20,5 @@ applyTo: '**'
 
 
 Other good practices:
-* This is my backend URL:  "https://us-central1-spik-backend.cloudfunctions.net/articles". never remove /articles from the code. 
+* This is my backend URL:  "https://us-central1-spik-backend.cloudfunctions.net/articles". never remove /articles from the code.
+* do not create summary documents 
