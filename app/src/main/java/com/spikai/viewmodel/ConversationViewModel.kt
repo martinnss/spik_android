@@ -305,10 +305,10 @@ class ConversationViewModel(
         // Count AI messages
         val aiMessageCount = conversation.count { it.role != "user" }
         
-        println("🔍 [ConversationVM] Conversation update:")
-        println("   Total messages: ${conversation.size}")
-        println("   AI messages: $aiMessageCount")
-        println("   Last AI count: $lastAIMessageCount")
+        //println("🔍 [ConversationVM] Conversation update:")
+        //println("   Total messages: ${conversation.size}")
+        //println("   AI messages: $aiMessageCount")
+        //println("   Last AI count: $lastAIMessageCount")
         
         // Trigger analysis only when AI sends a new message (not when user speaks)
         if (aiMessageCount > lastAIMessageCount) {
@@ -316,7 +316,7 @@ class ConversationViewModel(
             println("🚀 [ConversationVM] New AI message detected, triggering analysis...")
             analyzeConversationFlow()
         } else {
-            println("🔍 [ConversationVM] No new AI messages, skipping analysis")
+            //println("🔍 [ConversationVM] No new AI messages, skipping analysis")
         }
     }
     

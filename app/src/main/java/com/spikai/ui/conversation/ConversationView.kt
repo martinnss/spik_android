@@ -62,6 +62,14 @@ fun ConversationView(
         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
+    // Auto-start session when view appears (if not already connected)
+    LaunchedEffect(connectionStatus) {
+        if (connectionStatus == ConnectionStatus.DISCONNECTED) {
+            println("🎬 [ConversationView] Auto-starting session")
+            viewModel.startSession()
+        }
+    }
+
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -119,6 +127,47 @@ fun ConversationView(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
+                // Show "Start speaking..." hint when connected but no messages yet
+                if (messages.isEmpty() && connectionStatus == ConnectionStatus.CONNECTED) {
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.White.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = null,
+                                    tint = Color(0xFF34C759),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "🎤 Listening...",
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Start speaking to begin the conversation",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 14.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+                
                 items(messages) { item: ConversationItem ->
                     ConversationBubble(
                         item = item
