@@ -151,7 +151,12 @@ fun CareerMapView(
         if (showingProfile) {
             ProfileView(
                 isSignedIn = isUserSignedIn,
-                onDismiss = { showingProfile = false }
+                onDismiss = { showingProfile = false },
+                onSignOut = {
+                    showingProfile = false
+                    isUserSignedIn = false
+                    isCheckingAuth = false
+                }
             )
         }
         
@@ -903,10 +908,10 @@ private suspend fun loadUserProfile(onLoaded: (UserProfile) -> Unit) {
 
 // TODO: Implement authentication status check
 private suspend fun checkAuthenticationStatus(onResult: (Boolean) -> Unit) {
-    delay(100) // Simulate auth check
-    // TODO: Implement actual authentication check with GoogleSignInManager
-    // For now, always return false to force login until Google Sign-In is implemented
-    onResult(false)
+    delay(100) // Small delay to ensure Firebase is initialized
+    val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+    val isSignedIn = auth.currentUser != null
+    onResult(isSignedIn)
 }
 
 @Composable

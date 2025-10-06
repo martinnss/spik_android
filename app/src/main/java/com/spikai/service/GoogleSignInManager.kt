@@ -17,11 +17,15 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.Timestamp
+import com.spikai.model.EnglishLevel
+import com.spikai.model.UserProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.*
 
 class GoogleSignInManager private constructor(
@@ -69,6 +73,9 @@ class GoogleSignInManager private constructor(
             _isSignedIn.value = true
             _currentUser.value = user
             
+            // Ensure UserProfile exists in SharedPreferences
+            ensureUserProfileExists(user)
+            
             // This is likely where your "Usuario autenticado exitosamente" message comes from
             Log.d(TAG, "🎊 Usuario autenticado exitosamente - continuando progreso")
         } ?: run {
@@ -83,6 +90,9 @@ class GoogleSignInManager private constructor(
                 Log.d(TAG, "   ✅ User signed in: ${user.displayName}")
                 _isSignedIn.value = true
                 _currentUser.value = user
+                
+                // Ensure UserProfile exists whenever auth state changes to signed in
+                ensureUserProfileExists(user)
             } else {
                 Log.d(TAG, "   ❌ User signed out")
                 _isSignedIn.value = false
@@ -316,6 +326,44 @@ class GoogleSignInManager private constructor(
     
     fun isSignedIn(): Boolean {
         return auth.currentUser != null && _isSignedIn.value
+    }
+    
+    /**
+     * Ensure that a UserProfile exists in SharedPreferences for the signed-in user.
+     * If no profile exists, create a default one.
+     * Also ensures that onboarding is marked as completed for authenticated users.
+     */
+    private fun ensureUserProfileExists(user: FirebaseUser) {
+        val prefs = context.getSharedPreferences("career_map_prefs", Context.MODE_PRIVATE)
+        val existingProfile = prefs.getString("userProfile", null)
+        
+        if (existingProfile == null) {
+            Log.d(TAG, "📝 No UserProfile found, creating default profile for user")
+            
+            // Create a default profile with the user's name
+            val defaultProfile = UserProfile(
+                name = user.displayName ?: "User",
+                englishLevel = EnglishLevel.PRINCIPIANTE,
+                hasCompletedOnboarding = true  // User is authenticated, skip onboarding
+            )
+            
+            // Save to SharedPreferences
+            try {
+                val json = Json { ignoreUnknownKeys = true }
+                val jsonString = json.encodeToString(defaultProfile)
+                prefs.edit().putString("userProfile", jsonString).apply()
+                Log.d(TAG, "✅ Default UserProfile saved successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Failed to save default UserProfile: ${e.message}")
+            }
+        } else {
+            Log.d(TAG, "✅ UserProfile already exists in SharedPreferences")
+        }
+        
+        // Ensure onboarding is marked as completed for authenticated users
+        val preferencesManager = PreferencesManager.getInstance(context)
+        preferencesManager.setOnboardingCompleted(true)
+        Log.d(TAG, "✅ Onboarding marked as completed for authenticated user")
     }
     
     override fun onCleared() {

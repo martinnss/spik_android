@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -31,24 +33,35 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.spikai.model.ConnectionStatus
 import com.spikai.model.ConversationItem
+import com.spikai.ui.components.LevelEvaluationPopupView
 import com.spikai.viewmodel.ConversationViewModel
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversationView(
     viewModel: ConversationViewModel = viewModel(),
+    levelId: Int? = null,
+    levelTitle: String? = null,
     onBack: () -> Unit = {}
 ) {
-    // Use only state exposed by ConversationViewModel
+    // State from ViewModel
     val connectionStatus by viewModel.connectionStatus.collectAsStateWithLifecycle()
     val messages by viewModel.conversation.collectAsStateWithLifecycle()
     val isMuted by viewModel.isMuted.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val eventTypeStr by viewModel.eventTypeStr.collectAsStateWithLifecycle()
+    val isEvaluatingLevel by viewModel.isEvaluatingLevel.collectAsStateWithLifecycle()
+    val aiSpeakingSpeed by viewModel.aiSpeakingSpeed.collectAsStateWithLifecycle()
+    val showEvaluationPopup by viewModel.showEvaluationPopup.collectAsStateWithLifecycle()
+    val levelEvaluation by viewModel.levelEvaluation.collectAsStateWithLifecycle()
 
-    val configuration = LocalConfiguration.current
+    // UI state
     val listState = rememberLazyListState()
+    var showSettingsMenu by remember { mutableStateOf(false) }
+    var showCloseConfirmation by remember { mutableStateOf(false) }
 
-    // Request microphone permission for WebRTC audio recording
+    // Request microphone permission
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -57,15 +70,12 @@ fun ConversationView(
         }
     }
 
-    // Request permission on first composition
     LaunchedEffect(Unit) {
         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-    }
-
-    // Auto-start session when view appears (if not already connected)
-    LaunchedEffect(connectionStatus) {
+        
+        // Auto-start session ONLY on initial load
         if (connectionStatus == ConnectionStatus.DISCONNECTED) {
-            println("🎬 [ConversationView] Auto-starting session")
+            println("🎬 [ConversationView] Auto-starting session on view load")
             viewModel.startSession()
         }
     }
@@ -83,161 +93,146 @@ fun ConversationView(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF1C1C1E).copy(alpha = 0.9f), // Dark background
-                        Color(0xFFFF9500).copy(alpha = 0.8f), // Orange primary color
-                        Color(0xFFFF9500).copy(alpha = 0.6f)  // Orange primary color lighter
+                        Color(0xFF1C1C1E),
+                        Color(0xFF2C2C2E)
                     )
                 )
             )
-            .pointerInput(Unit) {
-                detectTapGestures {
-                    // No-op (kept for parity with original tap-to-dismiss behavior)
-                }
-            }
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top Bar
-            ConversationTopBar(
-                onBack = onBack
+            // Top Navigation Bar
+            TopNavigationBar(
+                onBack = { showCloseConfirmation = true },
+                onSettings = { showSettingsMenu = true }
             )
 
-            // Optional error banner
-            if (errorMessage.isNotEmpty()) {
+            // Level Title Section (if provided)
+            levelTitle?.let {
                 Text(
-                    text = errorMessage,
+                    text = it,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
                     color = Color.White,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFB00020))
-                        .padding(8.dp),
-                    textAlign = TextAlign.Center,
-                    fontSize = 12.sp
+                        .padding(horizontal = 20.dp, vertical = 8.dp)
                 )
             }
 
-            // Messages List
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 16.dp)
-            ) {
-                // Show "Start speaking..." hint when connected but no messages yet
-                if (messages.isEmpty() && connectionStatus == ConnectionStatus.CONNECTED) {
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color.White.copy(alpha = 0.1f)
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Mic,
-                                    contentDescription = null,
-                                    tint = Color(0xFF34C759),
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "🎤 Listening...",
-                                    color = Color.White,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Start speaking to begin the conversation",
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    fontSize = 14.sp,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                items(messages) { item: ConversationItem ->
-                    ConversationBubble(
-                        item = item
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Conversation Area
+            if (messages.isEmpty()) {
+                // Empty state
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 40.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Top
+                ) {
+                    Text(
+                        text = "👋",
+                        fontSize = 64.sp,
+                        modifier = Modifier.padding(bottom = 16.dp)
                     )
+                    Text(
+                        text = "¡Comienza a hablar!",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "El asistente está escuchando y listo para conversar contigo",
+                        fontSize = 16.sp,
+                        color = Color.White.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                // Messages list
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    items(messages) { item: ConversationItem ->
+                        ConversationBubble(item = item)
+                    }
                 }
             }
 
-            // Bottom Controls (start/end, mute)
-            ConversationBottomControls(
+            // iOS Style Call Control Bar
+            CallControlBar(
                 connectionStatus = connectionStatus,
                 isMuted = isMuted,
-                onStart = { viewModel.startSession() },
-                onEnd = { viewModel.endSession() },
+                onHangUp = {
+                    if (connectionStatus == ConnectionStatus.CONNECTED ||
+                        connectionStatus == ConnectionStatus.CONNECTING) {
+                        viewModel.endSession()
+                    }
+                    onBack()
+                },
                 onToggleMute = { viewModel.toggleMute() }
             )
         }
-    }
-}
 
-@Composable
-private fun ConversationTopBar(
-    onBack: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.Transparent
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Back Button
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        Color.White.copy(alpha = 0.1f),
-                        shape = CircleShape
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White
-                )
-            }
-
-            Text(
-                text = "Conversation",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
+        // Settings Menu Overlay
+        if (showSettingsMenu) {
+            ConversationSettingsMenuView(
+                isPresented = showSettingsMenu,
+                onDismiss = { showSettingsMenu = false },
+                aiSpeakingSpeed = aiSpeakingSpeed,
+                onSpeedChange = { viewModel.updateAiSpeakingSpeed(it) }
             )
+        }
 
-            Spacer(modifier = Modifier.size(40.dp)) // balance layout
+        // Close Confirmation Dialog
+        if (showCloseConfirmation) {
+            CloseConfirmationDialog(
+                onDismiss = { showCloseConfirmation = false },
+                onConfirm = {
+                    showCloseConfirmation = false
+                    viewModel.endSession()
+                    onBack()
+                }
+            )
+        }
+        
+        // Level Evaluation Popup
+        if (showEvaluationPopup && levelEvaluation != null) {
+            LevelEvaluationPopupView(
+                evaluation = levelEvaluation!!,
+                onContinue = {
+                    viewModel.onEvaluationContinue()
+                    onBack()
+                },
+                onRetry = {
+                    viewModel.onEvaluationRetry()
+                },
+                onClose = {
+                    viewModel.onEvaluationClose()
+                    onBack()
+                }
+            )
         }
     }
 }
 
 @Composable
-private fun ConversationBottomControls(
-    connectionStatus: ConnectionStatus,
-    isMuted: Boolean,
-    onStart: () -> Unit,
-    onEnd: () -> Unit,
-    onToggleMute: () -> Unit
+private fun TopNavigationBar(
+    onBack: () -> Unit,
+    onSettings: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -246,34 +241,227 @@ private fun ConversationBottomControls(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                .padding(top = 48.dp) // Status bar padding
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            when (connectionStatus) {
-                ConnectionStatus.CONNECTED -> {
-                    OutlinedButton(onClick = onToggleMute) {
-                        Icon(
-                            imageVector = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
-                            contentDescription = null
+            // Back/Close Button
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.1f))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Settings Button
+            IconButton(
+                onClick = onSettings,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.1f))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CallControlBar(
+    connectionStatus: ConnectionStatus,
+    isMuted: Boolean,
+    onHangUp: () -> Unit,
+    onToggleMute: () -> Unit
+) {
+    val isConnected = connectionStatus == ConnectionStatus.CONNECTED
+    
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 34.dp), // Navigation bar padding
+        color = Color.Transparent
+    ) {
+        Column(
+            modifier = Modifier.padding(bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            // Microphone button
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(70.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when {
+                                !isConnected -> Color(0xFFF2F2F7) // BackgroundSecondary
+                                isMuted -> Color(0xFFFF3B30) // ErrorRed
+                                else -> Color.White.copy(alpha = 0.2f)
+                            }
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text(if (isMuted) "Unmute" else "Mute")
-                    }
-                    Button(onClick = onEnd) {
-                        Icon(Icons.Default.Stop, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("End")
-                    }
+                        .clickable(enabled = isConnected) { onToggleMute() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = when {
+                            !isConnected -> Icons.Default.MicOff
+                            isMuted -> Icons.Default.MicOff
+                            else -> Icons.Default.Mic
+                        },
+                        contentDescription = "Microphone",
+                        tint = when {
+                            !isConnected -> Color(0xFF8E8E93) // TextSecondary
+                            isMuted -> Color.White
+                            else -> Color.White
+                        },
+                        modifier = Modifier.size(32.dp)
+                    )
                 }
-                ConnectionStatus.CONNECTING -> {
-                    CircularProgressIndicator(color = Color.White)
-                }
-                ConnectionStatus.DISCONNECTED, ConnectionStatus.FAILED -> {
-                    Button(onClick = onStart) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Start")
+                
+                Text(
+                    text = when {
+                        !isConnected -> "mute"
+                        isMuted -> "unmute"
+                        else -> "mute"
+                    },
+                    fontSize = 14.sp,
+                    color = when {
+                        !isConnected -> Color(0xFF8E8E93)
+                        else -> Color.White
+                    }
+                )
+            }
+
+            // Hang up button
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isConnected || connectionStatus == ConnectionStatus.CONNECTING) {
+                            Color(0xFFFF3B30) // ErrorRed
+                        } else {
+                            Color(0xFF34C759) // SuccessGreen
+                        }
+                    )
+                    .clickable { onHangUp() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isConnected || connectionStatus == ConnectionStatus.CONNECTING) {
+                        Icons.Default.CallEnd
+                    } else {
+                        Icons.Default.Call
+                    },
+                    contentDescription = "Hang Up",
+                    tint = Color.White,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CloseConfirmationDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f))
+            .clickable { onDismiss() },
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .padding(horizontal = 40.dp)
+                .clickable(enabled = false) { },
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF2C2C2E)
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "¿Salir de la conversación?",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
+                
+                Text(
+                    text = "Si sales ahora, perderás el progreso de esta conversación.",
+                    fontSize = 16.sp,
+                    color = Color.White.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Buttons
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF3B30)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "Sí, salir",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "Cancelar",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }

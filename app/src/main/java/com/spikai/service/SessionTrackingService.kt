@@ -17,6 +17,9 @@ class SessionTrackingService(private val context: Context) {
     private val _isSessionActive = MutableStateFlow(false)
     val isSessionActive: StateFlow<Boolean> = _isSessionActive.asStateFlow()
     
+    private val _lastCompletedLevelId = MutableStateFlow<Int?>(null)
+    val lastCompletedLevelId: StateFlow<Int?> = _lastCompletedLevelId.asStateFlow()
+    
     private var currentSession: UserSession? = null
     private val sessionReportingService = SessionReportingService.shared
     private val errorHandler = ErrorHandlingService.shared
@@ -38,12 +41,7 @@ class SessionTrackingService(private val context: Context) {
     /// Start a new session when a level begins
     fun startLevelSession(levelId: Int) {
         // TODO: Firebase Auth not provided in context - needs to be implemented
-        val userId = getCurrentUserId()
-        
-        if (userId == null) {
-            println("❌ [SessionTracker] Cannot start level session: User not authenticated")
-            return
-        }
+        val userId = getCurrentUserId() ?: "anonymous-${System.currentTimeMillis()}"
         
         // End any existing session before starting a new one
         if (currentSession != null) {
@@ -313,10 +311,8 @@ class SessionTrackingService(private val context: Context) {
     
     // TODO: Implement notification system when needed
     private fun notifyLevelCompleted(levelId: Int) {
-        // In Android, this would typically be done through:
-        // - Callbacks to registered listeners
-        // - Broadcasting through StateFlow/LiveData
-        // - Event bus systems
+        // Notify observers that a level was completed
+        _lastCompletedLevelId.value = levelId
         println("📡 [SessionTracker] Level $levelId completion notification sent")
     }
 }

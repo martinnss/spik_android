@@ -31,7 +31,8 @@ import kotlinx.coroutines.delay
 @Composable
 fun ProfileView(
     isSignedIn: Boolean = false,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onSignOut: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var userProfile by remember { mutableStateOf(UserProfile()) }
@@ -39,9 +40,6 @@ fun ProfileView(
     var showingDeleteAccountAlert by remember { mutableStateOf(false) }
     var showingDeleteSuccessAlert by remember { mutableStateOf(false) }
     var isDeletingAccount by remember { mutableStateOf(false) }
-    
-    // TODO: Implement GoogleSignInManager equivalent
-    // val googleSignInManager = GoogleSignInManager()
     
     LaunchedEffect(Unit) {
         loadUserProfile { profile ->
@@ -124,8 +122,9 @@ fun ProfileView(
                 TextButton(
                     onClick = {
                         showingSignOutAlert = false
-                        signOut { profile ->
-                            userProfile = profile
+                        signOut(context) {
+                            // After successful sign out, trigger the callback
+                            onSignOut()
                         }
                     }
                 ) {
@@ -402,19 +401,35 @@ private suspend fun loadUserProfile(onLoaded: (UserProfile) -> Unit) {
     onLoaded(profile)
 }
 
-private fun signOut(onProfileReset: (UserProfile) -> Unit) {
+private fun signOut(context: android.content.Context, onComplete: () -> Unit) {
     println("🚪 [ProfileView] User signing out")
-    // TODO: Implement GoogleSignInManager.signOut()
-
-    // TODO: Clear user profile from SharedPreferences
-    // Reset to default profile
-    val defaultProfile = UserProfile().apply {
-        englishLevel = com.spikai.model.EnglishLevel.PRINCIPIANTE
-        name = "Usuario Spik"
-    }
-
-    onProfileReset(defaultProfile)
-    println("✅ [ProfileView] Sign out completed, profile reset")
+    
+    // Sign out from Firebase
+    val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+    auth.signOut()
+    println("✅ [ProfileView] Signed out from Firebase")
+    
+    // Clear user profile from SharedPreferences
+    val prefs = context.getSharedPreferences("career_map_prefs", android.content.Context.MODE_PRIVATE)
+    prefs.edit().remove("userProfile").apply()
+    println("✅ [ProfileView] Cleared user profile from SharedPreferences")
+    
+    // Clear career progress from SharedPreferences
+    prefs.edit().remove("careerProgress").apply()
+    println("✅ [ProfileView] Cleared career progress from SharedPreferences")
+    
+    // Clear onboarding status
+    val spikPrefs = context.getSharedPreferences("spik_ai_prefs", android.content.Context.MODE_PRIVATE)
+    spikPrefs.edit().remove("hasCompletedOnboarding").apply()
+    println("✅ [ProfileView] Cleared onboarding status")
+    
+    // Clear local data service cache
+    val localDataService = com.spikai.service.LocalDataService.getInstance(context)
+    localDataService.clearAllCache()
+    println("✅ [ProfileView] Cleared local data service cache")
+    
+    println("✅ [ProfileView] Sign out completed")
+    onComplete()
 }
 
 private fun deleteAccount(
