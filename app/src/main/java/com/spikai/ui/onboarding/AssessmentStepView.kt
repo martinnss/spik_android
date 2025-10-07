@@ -40,7 +40,7 @@ fun AssessmentStepView(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Spacer(modifier = Modifier.weight(1f))
@@ -55,7 +55,7 @@ fun AssessmentStepView(
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 color = Color(0xFF1C1C1E), // TextPrimary
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = 8.dp),
                 lineHeight = 28.sp
             )
             
@@ -95,7 +95,7 @@ private fun AnswerOptionCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(80.dp)
+            .height(96.dp)
             .clickable { onSelected() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -117,7 +117,7 @@ private fun AnswerOptionCard(
             // Icon container
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .background(
                         if (isSelected) Color(0xFFFF9500) else Color(0xFFE5E5EA)
@@ -128,7 +128,7 @@ private fun AnswerOptionCard(
                     imageVector = getIconForName(option.iconName),
                     contentDescription = null,
                     tint = if (isSelected) Color.White else Color(0xFF8E8E93),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
             

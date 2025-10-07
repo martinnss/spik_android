@@ -23,10 +23,10 @@ enum class AssessmentQuestion(val value: Int) {
     val options: List<AssessmentOption>
         get() = when (this) {
             SPEAKING -> listOf(
-                AssessmentOption(iconName = "face.dashed", title = "Nervioso", description = "Me paralizo, no sé qué decir", level = 1),
+                AssessmentOption(iconName = "face.dashed", title = "Nervioso", description = "Me paralizo", level = 1),
                 AssessmentOption(iconName = "bubble.left", title = "Básico", description = "Puedo decir frases básicas", level = 2),
                 AssessmentOption(iconName = "person.2", title = "Conversacional", description = "Puedo conversar", level = 3),
-                AssessmentOption(iconName = "star", title = "Fluido", description = "Hablo con fluidez y confianza", level = 4)
+                AssessmentOption(iconName = "star", title = "Fluido", description = "Hablo como nativo", level = 4)
             )
             LISTENING -> listOf(
                 AssessmentOption(iconName = "xmark.circle", title = "Casi nada", description = "Necesito traducción", level = 1),

@@ -2,6 +2,7 @@ package com.spikai.ui.auth
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,11 +21,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spikai.R
 
 @Composable
 fun LoginView(
@@ -103,22 +106,15 @@ private fun HeaderSection(
                         spotColor = Color(0xFF000000).copy(alpha = 0.1f)
                     )
                     .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFFFF9500).copy(alpha = 0.9f), // Orange primary color
-                                Color(0xFFFF9500).copy(alpha = 0.7f)  // Orange primary color darker
-                            )
-                        ),
+                        color = Color.White,
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // TODO: Replace with actual SpikLogo resource
-                Text(
-                    text = "SPIK",
-                    color = Color.White,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
+                Image(
+                    painter = painterResource(id = R.drawable.spik_logo),
+                    contentDescription = "Spik Logo",
+                    modifier = Modifier.size(80.dp)
                 )
             }
         }

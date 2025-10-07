@@ -106,7 +106,9 @@ fun WelcomeStepView(
                     focusedBorderColor = Color(0xFFFF9500),
                     unfocusedBorderColor = Color(0xFFE5E5EA),
                     focusedContainerColor = Color(0xFFF2F2F7),
-                    unfocusedContainerColor = Color(0xFFF2F2F7)
+                    unfocusedContainerColor = Color(0xFFF2F2F7),
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black
                 ),
                 singleLine = true
             )
