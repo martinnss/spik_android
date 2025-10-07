@@ -46,13 +46,7 @@ fun LevelDetailView(
         ) {
             // Top bar
             TopAppBar(
-                title = { 
-                    Text(
-                        text = level.title,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                },
+                title = { },
                 actions = {
                     TextButton(onClick = onDismiss) {
                         Text(
@@ -318,16 +312,6 @@ private fun ActionButton(
                         color = Color.White
                     )
                 }
-            }
-            
-            if (!level.isCompleted) {
-                Text(
-                    text = "Practica conversaciones y ejercicios interactivos",
-                    fontSize = 12.sp,
-                    color = Color(0xFF8E8E93), // secondary
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         } else {
             Button(

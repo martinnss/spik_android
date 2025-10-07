@@ -84,6 +84,8 @@ fun CareerMapView(
             loadUserProfile { profile ->
                 userProfile = profile
             }
+            // Reload the viewModel's user profile to get the latest assessment data
+            viewModel.reloadUserProfile()
             // TODO: Implement level unlock listener
             // setupLevelUnlockListener()
             viewModel.loadCareerLevels()
@@ -93,7 +95,7 @@ fun CareerMapView(
     // Monitor completed levels for animation
     LaunchedEffect(progress.completedLevels) {
         // TODO: Implement animation logic for level completion
-        // onChange(of: viewModel.progress.completedLevels) logic here
+        // onChange(of: vfiewModel.progress.completedLevels) logic here
     }
     
     Box(modifier = Modifier.fillMaxSize()) {
@@ -249,6 +251,7 @@ private fun PathSelectorView(
                 }
             }
         },
+        containerColor = Color.White,
         modifier = Modifier
             .padding(16.dp)
             .widthIn(min = 400.dp, max = 600.dp)
@@ -364,12 +367,12 @@ private fun LanguageSelectorView(
     )
     
     val comingSoonLanguages = listOf(
-        Triple("🇪🇸", "Español", false),
-        Triple("🇫🇷", "Français", false),
-        Triple("🇩🇪", "Deutsch", false),
-        Triple("🇮🇹", "Italiano", false),
-        Triple("🇵🇹", "Português", false),
-        Triple("🇯🇵", "日本語", false)
+        Triple("🇪🇸", "Español", "Próximamente"),
+        Triple("🇫🇷", "Français", "Bientôt disponible"),
+        Triple("🇩🇪", "Deutsch", "Demnächst verfügbar"),
+        Triple("🇮🇹", "Italiano", "Prossimamente"),
+        Triple("🇵🇹", "Português", "Em breve"),
+        Triple("🇯🇵", "日本語", "近日公開")
     )
     
     AlertDialog(
@@ -391,32 +394,17 @@ private fun LanguageSelectorView(
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(
-                    text = "Selecciona el Idioma",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF1C1C1E), // TextPrimary
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
                 // Available languages section
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "Disponible",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1C1C1E) // TextPrimary
-                    )
-                    
                     availableLanguages.forEach { (flag, name, isAvailable) ->
                         LanguageRow(
                             flag = flag,
                             name = name,
                             isAvailable = isAvailable,
-                            isSelected = true // English is selected
+                            isSelected = true, // English is selected
+                            comingSoonText = null
                         )
                     }
                 }
@@ -431,39 +419,25 @@ private fun LanguageSelectorView(
                     ) {
                         Text(
                             text = "Próximamente",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF8E8E93) // TextSecondary
                         )
-                        
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = Color(0xFFFF9500).copy(alpha = 0.1f), // WarningOrange background
-                                    shape = RoundedCornerShape(4.dp)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "COMING SOON",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFFF9500) // WarningOrange
-                            )
-                        }
                     }
                     
-                    comingSoonLanguages.forEach { (flag, name, isAvailable) ->
+                    comingSoonLanguages.forEach { (flag, name, comingSoonText) ->
                         LanguageRow(
                             flag = flag,
                             name = name,
-                            isAvailable = isAvailable,
-                            isSelected = false
+                            isAvailable = false,
+                            isSelected = false,
+                            comingSoonText = comingSoonText
                         )
                     }
                 }
             }
         },
+        containerColor = Color.White,
         modifier = Modifier
             .padding(16.dp)
             .widthIn(min = 400.dp, max = 600.dp)
@@ -476,19 +450,18 @@ private fun LanguageRow(
     flag: String,
     name: String,
     isAvailable: Boolean,
-    isSelected: Boolean
+    isSelected: Boolean,
+    comingSoonText: String?
 ) {
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = if (isAvailable) Color(0xFFF2F2F7) else Color(0xFFF2F2F7).copy(alpha = 0.5f) // BackgroundSecondary
+            containerColor = Color(0xFFF2F2F7) // BackgroundSecondary
         ),
         border = androidx.compose.foundation.BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
             color = if (isSelected) Color(0xFF34C759) else Color(0xFFD1D1D6) // SuccessGreen/BorderLight
         ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (isAvailable) 1f else 0.7f)
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
@@ -498,27 +471,36 @@ private fun LanguageRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Flag
-            Text(
-                text = flag,
-                fontSize = 20.sp,
-                modifier = Modifier.alpha(if (isAvailable) 1f else 0.5f)
-            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = if (isAvailable) Color.White else Color(0xFFE5E5EA),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = flag,
+                    fontSize = 20.sp
+                )
+            }
             
             // Language name and status
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = name,
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.SemiBold,
                     color = if (isAvailable) Color(0xFF1C1C1E) else Color(0xFF8E8E93) // TextPrimary/TextSecondary
                 )
                 
-                if (!isAvailable) {
+                if (!isAvailable && comingSoonText != null) {
                     Text(
-                        text = "Próximamente",
+                        text = comingSoonText,
                         fontSize = 12.sp,
                         color = Color(0xFF8E8E93) // TextSecondary
                     )
@@ -538,7 +520,7 @@ private fun LanguageRow(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
                     tint = Color(0xFF8E8E93), // TextSecondary
-                    modifier = Modifier.size(12.dp)
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -633,7 +615,8 @@ private fun MainContent(
                 userProfile = userProfile,
                 onProfileClick = onProfileClick,
                 onLanguageSelectorClick = onLanguageSelectorClick,
-                onPathSelectorClick = onPathSelectorClick
+                onPathSelectorClick = onPathSelectorClick,
+                viewModel = viewModel
             )
         }
         
@@ -656,8 +639,11 @@ private fun HeaderSection(
     userProfile: UserProfile,
     onProfileClick: () -> Unit,
     onLanguageSelectorClick: () -> Unit,
-    onPathSelectorClick: () -> Unit
+    onPathSelectorClick: () -> Unit,
+    viewModel: CareerMapViewModel
 ) {
+    val currentSelectedPath by viewModel.currentSelectedPath.collectAsStateWithLifecycle()
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -681,7 +667,7 @@ private fun HeaderSection(
             )
         }
         
-        // User Level Badge (Orange button)
+        // User Level Badge (Orange button) - Shows currently selected path
         Button(
             onClick = onPathSelectorClick,
             colors = ButtonDefaults.buttonColors(
@@ -695,7 +681,7 @@ private fun HeaderSection(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = (userProfile.englishLevel ?: EnglishLevel.PRINCIPIANTE).pathDisplayText(),
+                    text = currentSelectedPath.pathDisplayText(),
                     color = Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium

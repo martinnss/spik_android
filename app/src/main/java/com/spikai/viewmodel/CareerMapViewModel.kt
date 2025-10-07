@@ -60,7 +60,7 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
     
     // SharedPreferences for persistence
     private val sharedPreferences: SharedPreferences by lazy {
-        context.getSharedPreferences("career_map_prefs", Context.MODE_PRIVATE)
+        context.getSharedPreferences("onboarding_prefs", Context.MODE_PRIVATE)
     }
     
     // JSON serializer
@@ -128,6 +128,25 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
         }
     }
     
+    /**
+     * Reload user profile from SharedPreferences
+     * Call this after onboarding completes to refresh the user's assessed level
+     */
+    fun reloadUserProfile() {
+        println("🔄 [CareerMapViewModel] Reloading user profile...")
+        loadUserProfile()
+        
+        // Reinitialize progress if needed
+        if (_progress.value.unlockedLevels.isEmpty()) {
+            initializeFreshProgress()
+        }
+        
+        // Reload levels with new user profile
+        viewModelScope.launch {
+            loadCareerLevels()
+        }
+    }
+    
     private fun setupNotificationObserver() {
         // Observe level completion notifications from SessionTrackingService
         viewModelScope.launch {
@@ -182,19 +201,30 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
     
     private fun initializeFreshProgress() {
         // Initialize progress based on user's English level if available
-        val progressValue = if (userProfile?.englishLevel != null) {
-            CareerProgress(basedOnEnglishLevel = userProfile!!.englishLevel!!)
+        val userLevel = userProfile?.englishLevel
+        
+        val progressValue = if (userLevel != null) {
+            val baseLevelId = userLevel.baseLevelId
+            val firstLevelOfUserPath = baseLevelId + 1 // First level is base + 1 (e.g., 3001 for INTERMEDIO)
+            
+            // Initialize with first level of user's assessed path unlocked
+            val initialProgress = CareerProgress(basedOnEnglishLevel = userLevel)
+            
+            println("🎯 [CareerMapViewModel] Initialized progress for ${userLevel.rawValue} level - First level $firstLevelOfUserPath unlocked")
+            println("📊 [CareerMapViewModel] Progress state - Unlocked: ${initialProgress.unlockedLevels}, Current: ${initialProgress.currentLevel}")
+            initialProgress
         } else {
-            CareerProgress() // Default initialization
+            // Default initialization for PRINCIPIANTE
+            val initialProgress = CareerProgress()
+            initialProgress.unlockedLevels = setOf(1001) // First level of PRINCIPIANTE path
+            initialProgress.currentLevel = 1001
+            
+            println("⚠️ [CareerMapViewModel] Initialized default progress - Level 1001 unlocked")
+            initialProgress
         }
         
         _progress.value = progressValue
-        
-        if (userProfile?.englishLevel != null) {
-            println("🎯 [CareerMapViewModel] Initialized progress for ${userProfile!!.englishLevel!!.rawValue} level")
-        } else {
-            println("⚠️ [CareerMapViewModel] Initialized default progress")
-        }
+        saveProgressToSharedPreferences() // Save initial progress
     }
     
     private fun saveProgressToSharedPreferences() {
@@ -558,19 +588,28 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
      */
     private fun updateLevelsForSelectedPath() {
         val pathBaseLevelId = _currentSelectedPath.value.baseLevelId
+        val userLevel = userProfile?.englishLevel ?: EnglishLevel.PRINCIPIANTE
+        val userBaseLevelId = userLevel.baseLevelId
+        
+        // Filter levels for the selected path
         val pathLevels = allLevels.filter { level ->
             level.levelId >= pathBaseLevelId && level.levelId < pathBaseLevelId + 1000
         }
         
+        // If viewing a previous path (lower than user's level), show all levels
+        // If viewing current or future path, show normally
         val levelsWithProgress = pathLevels.map { level ->
+            val isUnlocked = shouldLevelBeUnlocked(level.levelId)
+            val isCompleted = _progress.value.completedLevels.contains(level.levelId)
+            
             CareerLevel(
                 levelId = level.levelId,
                 title = level.title,
                 description = level.description,
                 toLearn = level.toLearn,
                 iosSymbol = level.iosSymbol,
-                isUnlocked = shouldLevelBeUnlocked(level.levelId),
-                isCompleted = _progress.value.completedLevels.contains(level.levelId),
+                isUnlocked = isUnlocked,
+                isCompleted = isCompleted,
                 experience = getExperienceForLevel(level.levelId),
                 totalExperience = getTotalExperienceForLevel(level.levelId)
             )
@@ -579,30 +618,46 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
         _levels.value = levelsWithProgress
         
         println("✅ [CareerMapViewModel] Updated to ${levelsWithProgress.size} levels for path: ${_currentSelectedPath.value.rawValue}")
+        println("📊 [CareerMapViewModel] Unlocked: ${levelsWithProgress.count { it.isUnlocked }}, Completed: ${levelsWithProgress.count { it.isCompleted }}")
     }
     
     /**
      * Determine if a level should be unlocked based on user's overall progress
      */
     private fun shouldLevelBeUnlocked(levelId: Int): Boolean {
-        val userLevel = userProfile?.englishLevel ?: return false
+        val userLevel = userProfile?.englishLevel ?: EnglishLevel.PRINCIPIANTE
         
-        // If the level is from a path lower than user's level, unlock all levels in that path
+        // Get the base level IDs for comparison
         val userBaseLevelId = userLevel.baseLevelId
         val levelPath = levelId / 1000 * 1000 // Get the path base (1000, 2000, 3000, 4000)
         
         return when {
             levelPath < userBaseLevelId -> {
-                // All levels in previous paths are unlocked
+                // All levels in previous paths are UNLOCKED AND PLAYABLE
+                println("🔓 [CareerMapViewModel] Level $levelId is from a previous path ($levelPath < $userBaseLevelId) - UNLOCKED")
                 true
             }
             levelPath == userBaseLevelId -> {
-                // For current path, use normal unlock logic
-                _progress.value.unlockedLevels.contains(levelId)
+                // For current path, use normal unlock logic based on progress
+                val isUnlocked = _progress.value.unlockedLevels.contains(levelId)
+                println("🎯 [CareerMapViewModel] Level $levelId is in current path ($levelPath == $userBaseLevelId) - ${if (isUnlocked) "UNLOCKED" else "LOCKED"}")
+                isUnlocked
             }
             else -> {
-                // Future paths are locked
-                false
+                // Future paths - check if this is the FIRST level of the next path
+                // If so, it should be VISIBLE but NOT PLAYABLE
+                val nextPathBaseLevelId = userBaseLevelId + 1000
+                val isFirstLevelOfNextPath = levelId == nextPathBaseLevelId
+                
+                if (isFirstLevelOfNextPath) {
+                    // Make it visible but not playable (will be handled by UI)
+                    println("👀 [CareerMapViewModel] Level $levelId is first of next path - VISIBLE but not playable")
+                    false
+                } else {
+                    // All other future path levels are completely locked
+                    println("🔒 [CareerMapViewModel] Level $levelId is in future path ($levelPath > $userBaseLevelId) - LOCKED")
+                    false
+                }
             }
         }
     }
