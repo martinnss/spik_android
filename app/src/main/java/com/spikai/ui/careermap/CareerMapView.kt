@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -177,11 +178,17 @@ fun CareerMapView(
         
         // Conversation View
         if (showingConversation && selectedLevelForConversation != null) {
-            ConversationView(
-                viewModel = ConversationViewModel(
-                    context = LocalContext.current,
+            // Remember the ViewModel to prevent recreation on recomposition
+            val context = LocalContext.current
+            val conversationViewModel = remember(selectedLevelForConversation!!.first) {
+                ConversationViewModel(
+                    context = context,
                     levelId = selectedLevelForConversation!!.first
-                ),
+                )
+            }
+            
+            ConversationView(
+                viewModel = conversationViewModel,
                 onBack = {
                     println("🔙 [CareerMapView] Closing conversation, returning to career map")
                     showingConversation = false
@@ -607,29 +614,66 @@ private fun MainContent(
     onPathSelectorClick: () -> Unit,
     onLanguageSelectorClick: () -> Unit
 ) {
-    LazyColumn(
+    val listState = rememberLazyListState()
+    
+    // Auto-scroll to the current level (first unlocked but not completed) on initial load
+    LaunchedEffect(levels) {
+        if (levels.isNotEmpty()) {
+            // Debug: Print level states
+            levels.forEachIndexed { index, level ->
+                println("🔍 [CareerMapView] Level ${level.levelId} (index $index): isUnlocked=${level.isUnlocked}, isCompleted=${level.isCompleted}")
+            }
+            
+            // Find the first unlocked level that is not completed (current level to work on)
+            val currentLevelIndex = levels.indexOfFirst { it.isUnlocked && !it.isCompleted }
+            
+            println("📍 [CareerMapView] Current level index: $currentLevelIndex")
+            if (currentLevelIndex >= 0) {
+                println("📍 [CareerMapView] Will scroll to level: ${levels[currentLevelIndex].levelId}")
+            }
+            
+            // If found, scroll to it. If not found (all completed), scroll to last completed
+            val targetIndex = if (currentLevelIndex >= 0) {
+                currentLevelIndex
+            } else {
+                // If no unlocked incomplete level, find last completed level
+                levels.indexOfLast { it.isCompleted }.takeIf { it >= 0 } ?: 0
+            }
+            
+            // Scroll to show the target level (allow scrolling to index 0 too)
+            delay(300) // Small delay to ensure layout is complete
+            listState.animateScrollToItem(targetIndex)
+        }
+    }
+    
+    Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        item {
-            HeaderSection(
-                userProfile = userProfile,
-                onProfileClick = onProfileClick,
-                onLanguageSelectorClick = onLanguageSelectorClick,
-                onPathSelectorClick = onPathSelectorClick,
-                viewModel = viewModel
-            )
-        }
+        // Header Section - Fixed at top
+        HeaderSection(
+            userProfile = userProfile,
+            onProfileClick = onProfileClick,
+            onLanguageSelectorClick = onLanguageSelectorClick,
+            onPathSelectorClick = onPathSelectorClick,
+            viewModel = viewModel
+        )
         
-        item {
-            PathSection(
-                viewModel = viewModel,
-                levels = levels,
-                currentLevelAnimating = currentLevelAnimating,
-                nextLevelAnimating = nextLevelAnimating,
-                lineAnimating = lineAnimating,
-                animatingCompletedLevelId = animatingCompletedLevelId,
-                animatingUnlockedLevelId = animatingUnlockedLevelId
-            )
+        // Scrollable Levels Section
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+                PathSection(
+                    viewModel = viewModel,
+                    levels = levels,
+                    currentLevelAnimating = currentLevelAnimating,
+                    nextLevelAnimating = nextLevelAnimating,
+                    lineAnimating = lineAnimating,
+                    animatingCompletedLevelId = animatingCompletedLevelId,
+                    animatingUnlockedLevelId = animatingUnlockedLevelId
+                )
+            }
         }
     }
 }

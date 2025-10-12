@@ -153,25 +153,95 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
             sessionTracker.lastCompletedLevelId.collect { levelId ->
                 if (levelId != null) {
                     println("🎉 [CareerMapViewModel] Level completion notification received for level $levelId")
-                    refreshProgress()
+                    handleLevelCompletion(levelId)
                 }
             }
+        }
+    }
+    
+    private fun handleLevelCompletion(levelId: Int) {
+        viewModelScope.launch {
+            println("🎯 [CareerMapViewModel] Processing level completion for: $levelId")
+            
+            // Mark as completed in current progress
+            val currentProgress = _progress.value
+            if (currentProgress.completedLevels.contains(levelId)) {
+                println("⚠️ [CareerMapViewModel] Level $levelId already marked as completed, skipping")
+                return@launch
+            }
+            
+            // Update progress with completion
+            val updatedProgress = currentProgress.copy(
+                completedLevels = currentProgress.completedLevels + levelId
+            )
+            
+            // Find and unlock next level
+            val sortedLevels = _levels.value.sortedBy { it.levelId }
+            println("📋 [CareerMapViewModel] Available levels: ${sortedLevels.map { it.levelId }}")
+            
+            var unlockedLevelId: Int? = null
+            val currentIndex = sortedLevels.indexOfFirst { it.levelId == levelId }
+            if (currentIndex >= 0 && currentIndex + 1 < sortedLevels.size) {
+                val nextLevelId = sortedLevels[currentIndex + 1].levelId
+                val updatedProgressWithUnlock = updatedProgress.copy(
+                    unlockedLevels = updatedProgress.unlockedLevels + nextLevelId,
+                    currentLevel = maxOf(updatedProgress.currentLevel, nextLevelId)
+                )
+                _progress.value = updatedProgressWithUnlock
+                unlockedLevelId = nextLevelId
+                println("🔓 [CareerMapViewModel] Unlocked next level: $nextLevelId")
+            } else {
+                _progress.value = updatedProgress
+                println("📝 [CareerMapViewModel] No next level to unlock. Current index: $currentIndex, levels count: ${sortedLevels.size}")
+            }
+            
+            // Add experience from completed level
+            val level = _levels.value.firstOrNull { it.levelId == levelId }
+            if (level != null) {
+                val finalProgress = _progress.value.copy(
+                    totalExperience = _progress.value.totalExperience + level.totalExperience
+                )
+                _progress.value = finalProgress
+                println("💰 [CareerMapViewModel] Added ${level.totalExperience} experience, total: ${finalProgress.totalExperience}")
+            }
+            
+            // Save updated progress
+            saveProgressToSharedPreferences()
+            println("💾 [CareerMapViewModel] Progress saved. Completed: ${_progress.value.completedLevels}, Unlocked: ${_progress.value.unlockedLevels}")
+            
+            // Delay reloading levels to allow evaluation popup to show in ConversationView
+            delay(500)
+            
+            // Reload levels UI to reflect changes
+            loadCareerLevels()
+            
+            println("✅ [CareerMapViewModel] Level completion processing finished for level $levelId")
         }
     }
     
     private fun loadProgressFromLocalData() {
         val localProgress = localDataService.loadUserProgress()
         
-        // Convert local progress to CareerProgress
-        val careerProgress = CareerProgress()
-        careerProgress.completedLevels = localProgress.completedLevels
-        careerProgress.unlockedLevels = localProgress.unlockedLevels
-        careerProgress.totalExperience = localProgress.totalExperience
-        careerProgress.currentLevel = localProgress.currentLevel
+        // Check if this is truly saved progress or just default values
+        val hasSavedProgress = localProgress.completedLevels.isNotEmpty() || 
+                               localProgress.unlockedLevels.size > 1 ||
+                               (localProgress.unlockedLevels.isNotEmpty() && userProfile?.englishLevel != null && 
+                                localProgress.unlockedLevels.first() / 1000 == userProfile!!.englishLevel!!.baseLevelId / 1000)
         
-        _progress.value = careerProgress
-        
-        println("✅ [CareerMapViewModel] Loaded progress from local data - Completed: ${localProgress.completedLevels.size}, Unlocked: ${localProgress.unlockedLevels.size}")
+        if (hasSavedProgress) {
+            // Convert local progress to CareerProgress
+            val careerProgress = CareerProgress()
+            careerProgress.completedLevels = localProgress.completedLevels
+            careerProgress.unlockedLevels = localProgress.unlockedLevels
+            careerProgress.totalExperience = localProgress.totalExperience
+            careerProgress.currentLevel = localProgress.currentLevel
+            
+            _progress.value = careerProgress
+            
+            println("✅ [CareerMapViewModel] Loaded progress from local data - Completed: ${localProgress.completedLevels.size}, Unlocked: ${localProgress.unlockedLevels.size}")
+        } else {
+            println("⚠️ [CareerMapViewModel] No valid saved progress in local data, will initialize based on user level")
+        }
         
         // Also load from SharedPreferences as backup for compatibility
         loadProgressFromSharedPreferences()
@@ -183,18 +253,29 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
             try {
                 val savedProgress = json.decodeFromString<CareerProgress>(jsonString)
                 
-                // Merge with local data (local data takes precedence)
-                val localProgress = localDataService.loadUserProgress()
-                if (localProgress.completedLevels.isEmpty() && savedProgress.completedLevels.isNotEmpty()) {
-                    // If local data is empty but SharedPreferences has data, use SharedPreferences
+                // Only use saved progress if it's valid for the current user level
+                val userLevel = userProfile?.englishLevel
+                val isValidProgress = if (userLevel != null) {
+                    savedProgress.unlockedLevels.isNotEmpty() && 
+                    savedProgress.unlockedLevels.any { it / 1000 == userLevel.baseLevelId / 1000 }
+                } else {
+                    savedProgress.unlockedLevels.isNotEmpty()
+                }
+                
+                if (isValidProgress) {
                     _progress.value = savedProgress
-                    println("✅ [CareerMapViewModel] Loaded progress from SharedPreferences (fallback)")
+                    println("✅ [CareerMapViewModel] Loaded progress from SharedPreferences - Unlocked: ${savedProgress.unlockedLevels}")
+                } else {
+                    println("⚠️ [CareerMapViewModel] Saved progress doesn't match user level, initializing fresh")
+                    initializeFreshProgress()
                 }
             } catch (e: Exception) {
                 println("❌ [CareerMapViewModel] Error decoding saved progress: ${e.message}")
                 initializeFreshProgress()
             }
-        } else if (localDataService.loadUserProgress().completedLevels.isEmpty()) {
+        } else {
+            // No saved progress found - initialize based on user level
+            println("⚠️ [CareerMapViewModel] No saved progress found, initializing fresh progress")
             initializeFreshProgress()
         }
     }
