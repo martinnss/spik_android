@@ -431,6 +431,8 @@ class ConversationViewModel(
         
         // Show evaluation popup
         _showEvaluationPopup.value = true
+        println("🎉 [ConversationVM] Evaluation popup state set to TRUE - popup should now be visible")
+        println("📊 [ConversationVM] Evaluation details: score=${evaluation.score}, passed=${evaluation.passed}")
     }
     
     // MARK: - Evaluation Popup Actions

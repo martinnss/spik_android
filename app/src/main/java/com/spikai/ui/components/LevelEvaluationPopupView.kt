@@ -397,21 +397,6 @@ private fun ActionButtons(
                     }
                 }
             }
-            
-            // Close button
-            TextButton(
-                onClick = onClose,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-            ) {
-                Text(
-                    text = "Cerrar",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF8E8E93) // TextSecondary
-                )
-            }
         }
     }
 }

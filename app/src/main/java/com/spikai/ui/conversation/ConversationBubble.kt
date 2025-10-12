@@ -37,24 +37,24 @@ fun ConversationBubble(
             Text(
                 text = if (item.text.isEmpty()) "..." else item.text,
                 fontSize = 16.sp,
-                color = if (isUser) Color.White else Color(0xFF1C1C1E), // TextInverse : TextPrimary
+                color = if (isUser) Color(0xFF1C1C1E) else Color.White, // User: black text, Assistant: white text
                 modifier = Modifier
                     .background(
                         brush = if (isUser) {
+                            // User message: White background
                             Brush.linearGradient(
                                 colors = listOf(
-                                    Color(0xFF007AFF), // PrimaryBlue
-                                    Color(0xFF6B46C1)  // PrimaryPurple
+                                    Color.White,
+                                    Color.White
                                 )
                             )
                         } else {
+                            // Assistant message: Orange gradient
                             Brush.linearGradient(
                                 colors = listOf(
-                                    Color(0xFFF2F2F7), // BackgroundSecondary
-                                    Color(0xFFFFFFFF)  // BackgroundTertiary (using white as tertiary)
-                                ),
-                                start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                end = androidx.compose.ui.geometry.Offset(0f, Float.POSITIVE_INFINITY)
+                                    Color(0xFFFF9500), // Orange
+                                    Color(0xFFFF6B00)  // Darker orange
+                                )
                             )
                         },
                         shape = RoundedCornerShape(20.dp)

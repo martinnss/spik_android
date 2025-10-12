@@ -56,6 +56,14 @@ fun ConversationView(
     val showEvaluationPopup by viewModel.showEvaluationPopup.collectAsStateWithLifecycle()
     val levelEvaluation by viewModel.levelEvaluation.collectAsStateWithLifecycle()
 
+    // Debug logging for popup state
+    LaunchedEffect(showEvaluationPopup) {
+        println("🔍 [ConversationView] showEvaluationPopup state changed to: $showEvaluationPopup")
+        if (showEvaluationPopup && levelEvaluation != null) {
+            println("✅ [ConversationView] Popup should be visible now with evaluation: score=${levelEvaluation?.score}, passed=${levelEvaluation?.passed}")
+        }
+    }
+
     // UI state
     val listState = rememberLazyListState()
     var showSettingsMenu by remember { mutableStateOf(false) }
@@ -83,7 +91,7 @@ fun ConversationView(
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+            listState.scrollToItem(0)
         }
     }
 
@@ -126,7 +134,7 @@ fun ConversationView(
 
             // Conversation Area
             if (messages.isEmpty()) {
-                // Empty state
+                // Empty state - preparing scenario
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -136,22 +144,15 @@ fun ConversationView(
                     verticalArrangement = Arrangement.Top
                 ) {
                     Text(
-                        text = "👋",
+                        text = "🎬",
                         fontSize = 64.sp,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
                     Text(
-                        text = "¡Comienza a hablar!",
+                        text = "Preparando el escenario...",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "El asistente está escuchando y listo para conversar contigo",
-                        fontSize = 16.sp,
-                        color = Color.White.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -163,10 +164,11 @@ fun ConversationView(
                         .weight(1f)
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    reverseLayout = true,
+                    verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
-                    items(messages) { item: ConversationItem ->
+                    items(messages.reversed()) { item: ConversationItem ->
                         ConversationBubble(item = item)
                     }
                 }
