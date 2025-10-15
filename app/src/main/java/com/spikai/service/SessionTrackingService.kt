@@ -40,8 +40,12 @@ class SessionTrackingService(private val context: Context) {
     
     /// Start a new session when a level begins
     fun startLevelSession(levelId: Int) {
-        // TODO: Firebase Auth not provided in context - needs to be implemented
-        val userId = getCurrentUserId() ?: "anonymous-${System.currentTimeMillis()}"
+        val userId = getCurrentUserId()
+        
+        if (userId == null) {
+            println("⚠️ [SessionTracker] Cannot start session: User not authenticated")
+            return
+        }
         
         // End any existing session before starting a new one
         if (currentSession != null) {
@@ -274,7 +278,6 @@ class SessionTrackingService(private val context: Context) {
     
     /// Test method to create and immediately send a sample session (for debugging)
     fun testSessionReporting() {
-        // TODO: Firebase Auth not provided in context - needs to be implemented
         val userId = getCurrentUserId()
         
         if (userId == null) {
@@ -303,10 +306,13 @@ class SessionTrackingService(private val context: Context) {
         saveSessionToBackend(session = finalTestSession)
     }
     
-    // TODO: Firebase Auth not provided in context - placeholder implementation
     private fun getCurrentUserId(): String? {
-        // This should return Firebase Auth currentUser?.uid
-        return null // TODO: Implement Firebase Auth integration
+        return try {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+        } catch (e: Exception) {
+            println("❌ [SessionTracker] Error getting Firebase user ID: ${e.message}")
+            null
+        }
     }
     
     // TODO: Implement notification system when needed

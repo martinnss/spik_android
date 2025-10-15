@@ -483,10 +483,10 @@ class WebRTCManager(private val context: Context) : ViewModel() {
         val factory = peerConnectionFactory ?: throw Exception("PeerConnectionFactory is null")
         val pc = peerConnection ?: throw Exception("PeerConnection is null")
         
-        // Create audio constraints matching Swift implementation for better audio quality
+        // Create audio constraints - Reduced sensitivity for less noise pickup
         val audioConstraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "false"))  // Desactivado para reducir sensibilidad
             mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", "true"))
             mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", "true"))
             mandatory.add(MediaConstraints.KeyValuePair("googTypingNoiseDetection", "true"))
@@ -494,7 +494,6 @@ class WebRTCManager(private val context: Context) : ViewModel() {
             mandatory.add(MediaConstraints.KeyValuePair("googNoiseReduction", "true"))
             
             optional.add(MediaConstraints.KeyValuePair("googEchoCancellation2", "true"))
-            optional.add(MediaConstraints.KeyValuePair("googAutoGainControl2", "true"))
         }
         
         val audioSource = factory.createAudioSource(audioConstraints)
@@ -503,13 +502,13 @@ class WebRTCManager(private val context: Context) : ViewModel() {
         
         val sender = pc.addTrack(localAudioTrack, listOf("local_stream"))
         
-        println("✅ [WebRTCManager] Audio track added with advanced constraints:")
+        println("✅ [WebRTCManager] Audio track added with reduced sensitivity:")
         println("   Track ID: ${localAudioTrack?.id()}")
         println("   Track enabled: ${localAudioTrack?.enabled()}")
         println("   Sender ID: ${sender?.id()}")
         println("   Echo cancellation: enabled")
         println("   Noise suppression: enabled")
-        println("   Auto gain control: enabled")
+        println("   Auto gain control: DISABLED (reduced sensitivity)")
         println("   Total senders in PC: ${pc.senders.size}")
         println("   Total receivers in PC: ${pc.receivers.size}")
     }
@@ -522,10 +521,13 @@ class WebRTCManager(private val context: Context) : ViewModel() {
                 am.mode = AudioManager.MODE_IN_COMMUNICATION
                 am.isSpeakerphoneOn = true
                 
+                // Reducir volumen del micrófono para menos sensibilidad
                 val maxVolume = am.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
-                am.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVolume, 0)
+                val reducedVolume = (maxVolume * 0.7).toInt()  // 70% del volumen máximo
+                am.setStreamVolume(AudioManager.STREAM_VOICE_CALL, reducedVolume, 0)
                 
-                println("✅ [WebRTCManager] Audio session configured")
+                println("✅ [WebRTCManager] Audio session configured with reduced microphone sensitivity")
+                println("   Max volume: $maxVolume, Set to: $reducedVolume (70%)")
             }
         } catch (e: Exception) {
             println("⚠️ [WebRTCManager] Failed to configure audio: ${e.message}")
@@ -724,9 +726,9 @@ class WebRTCManager(private val context: Context) : ViewModel() {
                 "output_audio_format" to "pcm16",
                 "turn_detection" to mapOf(
                     "type" to "server_vad",
-                    "threshold" to 0.5,
-                    "prefix_padding_ms" to 300,
-                    "silence_duration_ms" to 2100,
+                    "threshold" to 0.7,  // Aumentado de 0.5 a 0.7 para reducir sensibilidad
+                    "prefix_padding_ms" to 200,  // Reducido de 300 a 200ms
+                    "silence_duration_ms" to 1500,  // Reducido de 2100 a 1500ms para respuesta más rápida
                     "create_response" to true
                 ),
                 "input_audio_transcription" to mapOf(
