@@ -483,45 +483,66 @@ class WebRTCManager(private val context: Context) : ViewModel() {
         val factory = peerConnectionFactory ?: throw Exception("PeerConnectionFactory is null")
         val pc = peerConnection ?: throw Exception("PeerConnection is null")
         
-        // Create audio constraints for optimal speech detection
+        // Create audio constraints with aggressive gain control to boost microphone input
         val audioConstraints = MediaConstraints().apply {
-            mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "true"))  // Enable AGC for proper voice levels
-            mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("googTypingNoiseDetection", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation", "false"))
+            mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", "false"))
+            mandatory.add(MediaConstraints.KeyValuePair("googHighpassFilter", "false"))
+            mandatory.add(MediaConstraints.KeyValuePair("googTypingNoiseDetection", "false"))
             mandatory.add(MediaConstraints.KeyValuePair("googAudioMirroring", "false"))
-            mandatory.add(MediaConstraints.KeyValuePair("googNoiseReduction", "true"))
+            mandatory.add(MediaConstraints.KeyValuePair("googNoiseReduction", "false"))
             
-            optional.add(MediaConstraints.KeyValuePair("googEchoCancellation2", "true"))
+            optional.add(MediaConstraints.KeyValuePair("googEchoCancellation2", "false"))
+            optional.add(MediaConstraints.KeyValuePair("googAutoGainControl2", "true"))
+            optional.add(MediaConstraints.KeyValuePair("googAudioMirroring", "false"))
         }
         
         val audioSource = factory.createAudioSource(audioConstraints)
         localAudioTrack = factory.createAudioTrack("local_audio", audioSource)
         localAudioTrack?.setEnabled(true)
         
+        // Maximize track volume
+        localAudioTrack?.setVolume(10.0)
+        
         val sender = pc.addTrack(localAudioTrack, listOf("local_stream"))
         
-        println("✅ [WebRTCManager] Audio track added:")
+        println("✅ [WebRTCManager] Audio track added with BOOSTED gain settings:")
         println("   Track ID: ${localAudioTrack?.id()}")
         println("   Track enabled: ${localAudioTrack?.enabled()}")
+        println("   Track volume: 10.0 (MAX)")
         println("   Sender ID: ${sender?.id()}")
-        println("   Echo cancellation: enabled")
-        println("   Noise suppression: enabled")
-        println("   Auto gain control: enabled")
+        println("   Echo cancellation: DISABLED (to preserve audio level)")
+        println("   Noise suppression: DISABLED (to preserve audio level)")
+        println("   Auto gain control: ENABLED (to boost microphone)")
         println("   Total senders in PC: ${pc.senders.size}")
         println("   Total receivers in PC: ${pc.receivers.size}")
     }
     
     private fun configureAudioSession() {
-        println("🔊 [WebRTCManager] Configuring audio session")
+        println("🔊 [WebRTCManager] Configuring audio session with BOOSTED microphone gain")
         
         try {
             audioManager?.let { am ->
                 am.mode = AudioManager.MODE_IN_COMMUNICATION
                 am.isSpeakerphoneOn = true
                 
-                println("✅ [WebRTCManager] Audio session configured for optimal voice communication")
+                // Set maximum volume for voice call stream
+                val maxVolume = am.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
+                am.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVolume, 0)
+                
+                // Try to boost microphone gain (requires MODIFY_AUDIO_SETTINGS permission)
+                try {
+                    val micVolume = am.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
+                    println("🎤 [Audio] Microphone volume: $micVolume / $maxVolume")
+                } catch (e: Exception) {
+                    println("⚠️ [Audio] Could not check microphone volume: ${e.message}")
+                }
+                
+                println("✅ [WebRTCManager] Audio session configured with MAX gain")
+                println("   Mode: MODE_IN_COMMUNICATION")
+                println("   Speakerphone: ON")
+                println("   Voice call volume: MAX ($maxVolume)")
             }
         } catch (e: Exception) {
             println("⚠️ [WebRTCManager] Failed to configure audio: ${e.message}")
@@ -720,9 +741,9 @@ class WebRTCManager(private val context: Context) : ViewModel() {
                 "output_audio_format" to "pcm16",
                 "turn_detection" to mapOf(
                     "type" to "server_vad",
-                    "threshold" to 0.3,  // Lower threshold for better speech detection
-                    "prefix_padding_ms" to 500,  // More padding to capture speech start
-                    "silence_duration_ms" to 1000,  // Longer silence before ending turn
+                    "threshold" to 0.5,
+                    "prefix_padding_ms" to 300,
+                    "silence_duration_ms" to 2100,
                     "create_response" to true
                 ),
                 "input_audio_transcription" to mapOf(
