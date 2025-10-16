@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "561746006271-b1lgjvcrudol7mvt3jidc54rmiks4k1n.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.spikai",
+            "certificate_hash": "dfbca1051529933817c25957dab2ed7d9a424025"
+          }
+        },
+        {
           "client_id": "561746006271-us35gccgnfa5b2ol4pgibb8vq35vq8nk.apps.googleusercontent.com",
           "client_type": 3
         }

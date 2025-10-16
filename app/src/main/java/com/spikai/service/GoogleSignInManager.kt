@@ -182,7 +182,7 @@ class GoogleSignInManager private constructor(
             } else {
                 Log.w(TAG, "❌ Credential is not of type Google ID!")
                 Log.w(TAG, "Received credential type: ${credential.type}")
-                _errorMessage.value = "Invalid credential type"
+                _errorMessage.value = "Tipo de credencial inválido"
                 _isLoading.value = false
                 completion(false)
             }
@@ -208,7 +208,7 @@ class GoogleSignInManager private constructor(
             val user = authResult.user
             if (user == null) {
                 Log.w(TAG, "❌ signInWithCredential:failure - no user returned")
-                _errorMessage.value = "Authentication failed"
+                _errorMessage.value = "Error de autenticación"
                 _isLoading.value = false
                 completion(false)
                 return
@@ -232,7 +232,7 @@ class GoogleSignInManager private constructor(
                 completion(true)
             } else {
                 Log.e(TAG, "❌ Failed to save user data to Firestore")
-                _errorMessage.value = "Failed to save user data"
+                _errorMessage.value = "Error al guardar datos del usuario"
                 completion(false)
             }
             
@@ -240,7 +240,7 @@ class GoogleSignInManager private constructor(
             Log.w(TAG, "❌ signInWithCredential:failure", e)
             Log.e(TAG, "Exception type: ${e::class.simpleName}")
             Log.e(TAG, "Exception message: ${e.message}")
-            _errorMessage.value = "Authentication failed: ${e.localizedMessage}"
+            _errorMessage.value = "Error de autenticación: ${e.localizedMessage}"
             completion(false)
         } finally {
             _isLoading.value = false
@@ -263,7 +263,7 @@ class GoogleSignInManager private constructor(
                 
             } catch (e: Exception) {
                 Log.w(TAG, "❌ Sign out failed", e)
-                _errorMessage.value = "Sign out failed: ${e.localizedMessage}"
+                _errorMessage.value = "Error al cerrar sesión: ${e.localizedMessage}"
             }
         }
     }
@@ -319,7 +319,15 @@ class GoogleSignInManager private constructor(
     
     private fun handleSignInError(error: Exception, completion: (Boolean) -> Unit) {
         Log.e(TAG, "Sign in failed", error)
-        _errorMessage.value = "Sign in failed: ${error.localizedMessage}"
+        
+        // Provide specific message for NoCredentialException
+        _errorMessage.value = when (error) {
+            is androidx.credentials.exceptions.NoCredentialException -> 
+                "Por favor añade una cuenta de Google en la configuración de tu dispositivo e intenta nuevamente"
+            else -> 
+                "Error al iniciar sesión: ${error.localizedMessage}"
+        }
+        
         _isLoading.value = false
         completion(false)
     }

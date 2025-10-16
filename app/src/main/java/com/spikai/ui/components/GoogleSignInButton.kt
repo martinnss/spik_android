@@ -33,95 +33,108 @@ fun GoogleSignInButton(
     val isLoading by googleSignInManager.isLoading.collectAsState()
     val errorMessage by googleSignInManager.errorMessage.collectAsState()
     
+    val snackbarHostState = remember { SnackbarHostState() }
+    
     // Show error if any
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
-            // TODO: Show proper error dialog or snackbar
             println("Sign-in error: $it")
+            snackbarHostState.showSnackbar(
+                message = it,
+                duration = SnackbarDuration.Long
+            )
         }
     }
     
-    Button(
-        onClick = {
-            println("🔘 GoogleSignInButton clicked!")
-            println("🔍 Context type: ${context::class.simpleName}")
-            println("🔍 Is loading: $isLoading")
-            
-            if (context is Activity) {
-                println("✅ Context is Activity - proceeding with sign-in")
-                googleSignInManager.signInWithGoogle(context) { success ->
-                    println("📝 Sign-in callback received: success = $success")
-                    if (success) {
-                        println("🎉 Calling action() callback")
-                        action()
+    Box {
+        Column {
+            Button(
+                onClick = {
+                    println("🔘 GoogleSignInButton clicked!")
+                    println("🔍 Context type: ${context::class.simpleName}")
+                    println("🔍 Is loading: $isLoading")
+                    
+                    if (context is Activity) {
+                        println("✅ Context is Activity - proceeding with sign-in")
+                        googleSignInManager.signInWithGoogle(context) { success ->
+                            println("📝 Sign-in callback received: success = $success")
+                            if (success) {
+                                println("🎉 Calling action() callback")
+                                action()
+                            } else {
+                                println("❌ Sign-in failed, not calling action()")
+                            }
+                        }
                     } else {
-                        println("❌ Sign-in failed, not calling action()")
+                        println("❌ Context is not an Activity - cannot perform Google Sign-In")
+                        println("   Context class: ${context::class.java.name}")
                     }
-                }
-            } else {
-                println("❌ Context is not an Activity - cannot perform Google Sign-In")
-                println("   Context class: ${context::class.java.name}")
-            }
-        },
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = 2.dp,
+                },
+                modifier = modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 2.dp,
+                        shape = RoundedCornerShape(8.dp),
+                        ambientColor = Color(0xFF000000).copy(alpha = 0.1f),
+                        spotColor = Color(0xFF000000).copy(alpha = 0.1f)
+                    ),
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF1C1C1E),
+                    disabledContainerColor = Color.White.copy(alpha = 0.8f),
+                    disabledContentColor = Color(0xFF1C1C1E).copy(alpha = 0.8f)
+                ),
                 shape = RoundedCornerShape(8.dp),
-                ambientColor = Color(0xFF000000).copy(alpha = 0.1f), // ShadowColor
-                spotColor = Color(0xFF000000).copy(alpha = 0.1f)
-            ),
-        enabled = !isLoading,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.White, // TextInverse
-            contentColor = Color(0xFF1C1C1E), // TextPrimary
-            disabledContainerColor = Color.White.copy(alpha = 0.8f),
-            disabledContentColor = Color(0xFF1C1C1E).copy(alpha = 0.8f)
-        ),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(
-            width = 1.dp,
-            color = Color(0xFFE5E5EA) // BorderLight
-        )
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = Color(0xFF4285F4) // GoogleBlue
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = Color(0xFFE5E5EA)
                 )
-            } else {
-                // Google "G" logo placeholder
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(
-                            color = Color.White, // TextInverse
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp)
                 ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Color(0xFF4285F4)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .background(
+                                    color = Color.White,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "G",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF4285F4)
+                            )
+                        }
+                    }
+                    
                     Text(
-                        text = "G",
+                        text = if (isLoading) "Iniciando sesión..." else "Continuar con Google",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4285F4) // GoogleBlue
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1C1C1E)
                     )
                 }
             }
-            
-            Text(
-                text = if (isLoading) "Iniciando sesión..." else "Continuar con Google",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF1C1C1E) // TextPrimary
-            )
         }
+        
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
