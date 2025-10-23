@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "561746006271-ri5f9vgreq8oqht6abn3f9h9u1li3o0u.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.spikai",
+            "certificate_hash": "29f64bdbfd13d55bd3033c42d19322325bcd1f9f"
+          }
+        },
+        {
           "client_id": "561746006271-us35gccgnfa5b2ol4pgibb8vq35vq8nk.apps.googleusercontent.com",
           "client_type": 3
         }
