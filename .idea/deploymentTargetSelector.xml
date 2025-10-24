@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="Spik AI">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-10-16T03:41:05.940067Z">
+        <DropdownSelection timestamp="2025-10-23T12:01:02.970472Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=/Users/martinolivares/.android/avd/Medium_Phone_2.avd" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=R5CW61WT72B" />
             </handle>
           </Target>
         </DropdownSelection>
