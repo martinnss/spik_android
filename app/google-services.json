@@ -22,11 +22,19 @@
           }
         },
         {
-          "client_id": "561746006271-ri5f9vgreq8oqht6abn3f9h9u1li3o0u.apps.googleusercontent.com",
+          "client_id": "561746006271-fge0p85rfajt3ouun02uk9inghb8tgon.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.spikai",
-            "certificate_hash": "29f64bdbfd13d55bd3033c42d19322325bcd1f9f"
+            "certificate_hash": "22c1801eef9402020dc1d49eb9d38566a1259ae2"
+          }
+        },
+        {
+          "client_id": "561746006271-tji40sro3cmr88alp1fijqcqrf5kfj1m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.spikai",
+            "certificate_hash": "e7722efa3e6f86191d46d1819a1a4d6b39ded32d"
           }
         },
         {
