@@ -79,7 +79,8 @@ enum class EnglishLevel(val rawValue: String) {
     PRINCIPIANTE("Principiante"),
     BASICO("Básico"),
     INTERMEDIO("Intermedio"),
-    AVANZADO("Avanzado");
+    AVANZADO("Avanzado"),
+    B2B("Business");
 
     val id: String get() = rawValue
 
@@ -89,6 +90,7 @@ enum class EnglishLevel(val rawValue: String) {
             BASICO -> "Puedes manejar situaciones básicas"
             INTERMEDIO -> "Puedes mantener conversaciones cotidianas"
             AVANZADO -> "Hablas con confianza en la mayoría de situaciones"
+            B2B -> "Niveles personalizados para negocios"
         }
 
     val baseLevelId: Int
@@ -97,6 +99,7 @@ enum class EnglishLevel(val rawValue: String) {
             BASICO -> 2000
             INTERMEDIO -> 3000
             AVANZADO -> 4000
+            B2B -> 9000
         }
 
     companion object {
@@ -142,6 +145,7 @@ data class UserProfile(
                 EnglishLevel.BASICO -> "A2 - Básico"
                 EnglishLevel.INTERMEDIO -> "B1 - Intermedio"
                 EnglishLevel.AVANZADO -> "B2/C1 - Avanzado"
+                EnglishLevel.B2B -> "Business"
                 null -> "Nivel no determinado"
             }
         }

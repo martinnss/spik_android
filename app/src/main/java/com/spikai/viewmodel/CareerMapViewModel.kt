@@ -50,6 +50,12 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
     private val _currentSelectedPath = MutableStateFlow(EnglishLevel.PRINCIPIANTE)
     val currentSelectedPath: StateFlow<EnglishLevel> = _currentSelectedPath.asStateFlow()
     
+    private val _b2bLevels = MutableStateFlow<List<CareerLevel>>(emptyList())
+    val b2bLevels: StateFlow<List<CareerLevel>> = _b2bLevels.asStateFlow()
+    
+    private val _hasB2BLevels = MutableStateFlow(false)
+    val hasB2BLevels: StateFlow<Boolean> = _hasB2BLevels.asStateFlow()
+    
     // Private properties
     private val levelsService: LevelsService = LevelsService.shared
     private val errorHandler: ErrorHandlingService = ErrorHandlingService.shared
@@ -339,8 +345,40 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
             try {
                 val apiLevels = levelsService.fetchLevels()
                 
-                // Store all levels for path switching
-                allLevels = apiLevels
+                println("📊 [CareerMapViewModel] Received ${apiLevels.size} total levels from API")
+                println("📊 [CareerMapViewModel] Level IDs: ${apiLevels.map { it.levelId }.sorted()}")
+                
+                // Separate B2B levels (9000+) from regular levels
+                val regularLevels = apiLevels.filter { it.levelId < 9000 }
+                val businessLevels = apiLevels.filter { it.levelId >= 9000 }
+                
+                println("📊 [CareerMapViewModel] Regular levels: ${regularLevels.size}, B2B levels: ${businessLevels.size}")
+                
+                // Store all regular levels for path switching
+                allLevels = regularLevels
+                
+                // Store B2B levels and set flag
+                _b2bLevels.value = businessLevels.map { level ->
+                    CareerLevel(
+                        levelId = level.levelId,
+                        title = level.title,
+                        description = level.description,
+                        toLearn = level.toLearn,
+                        iosSymbol = level.iosSymbol,
+                        isUnlocked = true, // All B2B levels are unlocked
+                        isCompleted = _progress.value.completedLevels.contains(level.levelId),
+                        experience = getExperienceForLevel(level.levelId),
+                        totalExperience = getTotalExperienceForLevel(level.levelId)
+                    )
+                }.sortedBy { it.levelId }
+                
+                _hasB2BLevels.value = businessLevels.isNotEmpty()
+                
+                if (_hasB2BLevels.value) {
+                    println("🏢 [CareerMapViewModel] Found ${businessLevels.size} B2B levels: ${businessLevels.map { "${it.levelId}: ${it.title}" }}")
+                } else {
+                    println("⚠️ [CareerMapViewModel] No B2B levels found (no levels >= 9000)")
+                }
                 
                 // Set initial path if not set
                 val userLevel = userProfile?.englishLevel
@@ -625,14 +663,31 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
      */
     val availablePaths: List<EnglishLevel>
         get() {
-            val userLevel = userProfile?.englishLevel ?: return listOf(EnglishLevel.PRINCIPIANTE)
+            val userLevel = userProfile?.englishLevel
             
-            return when (userLevel) {
-                EnglishLevel.PRINCIPIANTE -> listOf(EnglishLevel.PRINCIPIANTE)
-                EnglishLevel.BASICO -> listOf(EnglishLevel.PRINCIPIANTE, EnglishLevel.BASICO)
-                EnglishLevel.INTERMEDIO -> listOf(EnglishLevel.PRINCIPIANTE, EnglishLevel.BASICO, EnglishLevel.INTERMEDIO)
-                EnglishLevel.AVANZADO -> listOf(EnglishLevel.PRINCIPIANTE, EnglishLevel.BASICO, EnglishLevel.INTERMEDIO, EnglishLevel.AVANZADO)
+            if (userLevel == null) {
+                // If no user level, show principiante + B2B if available
+                val paths = mutableListOf(EnglishLevel.PRINCIPIANTE)
+                if (_hasB2BLevels.value) {
+                    paths.add(EnglishLevel.B2B)
+                }
+                return paths
             }
+            
+            val paths = when (userLevel) {
+                EnglishLevel.PRINCIPIANTE -> mutableListOf(EnglishLevel.PRINCIPIANTE)
+                EnglishLevel.BASICO -> mutableListOf(EnglishLevel.PRINCIPIANTE, EnglishLevel.BASICO)
+                EnglishLevel.INTERMEDIO -> mutableListOf(EnglishLevel.PRINCIPIANTE, EnglishLevel.BASICO, EnglishLevel.INTERMEDIO)
+                EnglishLevel.AVANZADO -> mutableListOf(EnglishLevel.PRINCIPIANTE, EnglishLevel.BASICO, EnglishLevel.INTERMEDIO, EnglishLevel.AVANZADO)
+                EnglishLevel.B2B -> mutableListOf(EnglishLevel.B2B)
+            }
+            
+            // Add B2B path if user has B2B levels (except if already B2B user)
+            if (_hasB2BLevels.value && userLevel != EnglishLevel.B2B) {
+                paths.add(EnglishLevel.B2B)
+            }
+            
+            return paths
         }
     
     /**
@@ -641,6 +696,11 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
     val lockedPaths: List<EnglishLevel>
         get() {
             val userLevel = userProfile?.englishLevel ?: return listOf(EnglishLevel.BASICO, EnglishLevel.INTERMEDIO, EnglishLevel.AVANZADO)
+            
+            // B2B users don't have locked paths in regular levels
+            if (userLevel == EnglishLevel.B2B) {
+                return emptyList()
+            }
             
             val allPaths = listOf(EnglishLevel.PRINCIPIANTE, EnglishLevel.BASICO, EnglishLevel.INTERMEDIO, EnglishLevel.AVANZADO)
             return allPaths.filter { path ->
@@ -668,6 +728,15 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
      * Update the displayed levels based on the selected path
      */
     private fun updateLevelsForSelectedPath() {
+        // Special handling for B2B path
+        if (_currentSelectedPath.value == EnglishLevel.B2B) {
+            // Show B2B levels (which are already processed and stored in b2bLevels)
+            _levels.value = _b2bLevels.value
+            println("✅ [CareerMapViewModel] Switched to B2B path with ${_levels.value.size} levels")
+            return
+        }
+        
+        // Regular path handling
         val pathBaseLevelId = _currentSelectedPath.value.baseLevelId
         val userLevel = userProfile?.englishLevel ?: EnglishLevel.PRINCIPIANTE
         val userBaseLevelId = userLevel.baseLevelId

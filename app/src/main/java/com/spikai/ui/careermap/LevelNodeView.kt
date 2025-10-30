@@ -47,128 +47,144 @@ fun LevelNodeView(
         label = "breathing_scale"
     )
     
-    LaunchedEffect(level.isCompleted, isCurrentLevelAnimating) {
-        if (level.isCompleted && !isCurrentLevelAnimating) {
+    LaunchedEffect(level.isCompleted) {
+        if (level.isCompleted) {
             breathingScale = animatedBreathingScale
         }
     }
     
-    val scaleEffect = if (level.isCompleted && !isCurrentLevelAnimating) breathingScale else 1.0f
+    val scaleEffect = if (level.isCompleted) {
+        breathingScale * animationScaleEffect(isCurrentLevelAnimating, isNextLevelAnimating)
+    } else {
+        animationScaleEffect(isCurrentLevelAnimating, isNextLevelAnimating)
+    }
     
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .scale(scaleEffect)
+            .offset(y = animationOffsetY(isCurrentLevelAnimating, isNextLevelAnimating).dp)
             .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Card(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(enabled = level.isUnlocked || isNextLevelAnimating) { onTap() }
                 .scale(cardScaleEffect(isCurrentLevelAnimating, isNextLevelAnimating))
                 .shadow(
-                    elevation = cardShadowRadius(isCurrentLevelAnimating, isNextLevelAnimating).dp,
+                    elevation = animationShadowRadius(isCurrentLevelAnimating, isNextLevelAnimating).dp,
                     shape = RoundedCornerShape(16.dp),
-                    ambientColor = cardShadowColor(isCurrentLevelAnimating, isNextLevelAnimating),
-                    spotColor = cardShadowColor(isCurrentLevelAnimating, isNextLevelAnimating)
+                    ambientColor = animationShadowColor(isCurrentLevelAnimating, isNextLevelAnimating),
+                    spotColor = animationShadowColor(isCurrentLevelAnimating, isNextLevelAnimating)
                 ),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = cardBackgroundColor(level, isCurrentLevelAnimating, isNextLevelAnimating)
-            ),
-            border = BorderStroke(
-                width = 2.dp,
-                color = cardBorderColor(level, isCurrentLevelAnimating, isNextLevelAnimating)
-            )
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(
+            // Level circle icon (80x80 - larger)
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(levelBackgroundColor(level, isCurrentLevelAnimating, isNextLevelAnimating))
+                    .border(
+                        width = 3.dp,
+                        color = levelBorderColor(level, isCurrentLevelAnimating, isNextLevelAnimating),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                // Level circle icon
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .scale(animationScaleEffect(isCurrentLevelAnimating, isNextLevelAnimating))
-                        .offset(
-                            x = animationOffsetX(isCurrentLevelAnimating, isNextLevelAnimating).dp,
-                            y = animationOffsetY(isCurrentLevelAnimating, isNextLevelAnimating).dp
-                        )
-                        .shadow(
-                            elevation = animationShadowRadius(isCurrentLevelAnimating, isNextLevelAnimating).dp,
-                            shape = CircleShape,
-                            ambientColor = animationShadowColor(isCurrentLevelAnimating, isNextLevelAnimating),
-                            spotColor = animationShadowColor(isCurrentLevelAnimating, isNextLevelAnimating)
-                        )
-                        .clip(CircleShape)
-                        .background(levelBackgroundColor(level, isCurrentLevelAnimating, isNextLevelAnimating))
-                        .border(
-                            width = 2.dp,
-                            color = levelBorderColor(level, isCurrentLevelAnimating, isNextLevelAnimating),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (level.isCompleted) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    } else {
-                        Icon(
-                            imageVector = getIconForLevel(level),
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                if (level.isCompleted) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = getIconForLevel(level),
+                        contentDescription = null,
+                        tint = if (level.isUnlocked) Color.White else Color(0xFF8E8E93), // TextSecondary
+                        modifier = Modifier.size(32.dp)
+                    )
                 }
-                
-                // Level information
+            }
+            
+            // Level info card (below circle)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = cardBackgroundColor(level, isCurrentLevelAnimating, isNextLevelAnimating)
+                ),
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = Color(0xFFE5E5EA) // BorderLight
+                )
+            ) {
                 Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         text = level.title,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF1C1C1E), // TextPrimary
+                        textAlign = TextAlign.Center,
                         maxLines = 2
                     )
-                }
-                
-                // Status indicator
-                when {
-                    level.isCompleted -> {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Completado",
-                            tint = Color(0xFF34C759), // SuccessGreen
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    level.isUnlocked -> {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Disponible",
-                            tint = Color(0xFFFF9500), // WarningOrange
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    else -> {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Bloqueado",
-                            tint = Color(0xFF8E8E93), // TextSecondary
-                            modifier = Modifier.size(20.dp)
-                        )
+                    
+                    // Status indicator
+                    when {
+                        !level.isUnlocked -> {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = Color(0xFF8E8E93), // TextSecondary
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "Bloqueado",
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF8E8E93) // TextSecondary
+                                )
+                            }
+                        }
+                        level.isCompleted -> {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFF34C759), // SuccessGreen
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "Completado",
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF34C759) // SuccessGreen
+                                )
+                            }
+                        }
+                        else -> {
+                            Text(
+                                text = "Toca para comenzar",
+                                fontSize = 14.sp,
+                                color = Color(0xFFFF9500) // WarningOrange
+                            )
+                        }
                     }
                 }
             }
@@ -184,11 +200,9 @@ private fun levelBackgroundColor(
     isNextLevelAnimating: Boolean
 ): Color {
     return when {
-        isCurrentLevelAnimating -> Color(0xFF34C759) // Animated completion green
-        isNextLevelAnimating -> Color(0xFFFF9500) // Animated unlock orange
         level.isCompleted -> Color(0xFF34C759) // SuccessGreen
         level.isUnlocked -> Color(0xFFFF9500) // WarningOrange
-        else -> Color(0xFF8E8E93) // TextSecondary (locked)
+        else -> Color(0xFFF2F2F7) // BackgroundSecondary
     }
 }
 
@@ -198,11 +212,9 @@ private fun levelBorderColor(
     isNextLevelAnimating: Boolean
 ): Color {
     return when {
-        isCurrentLevelAnimating -> Color(0xFF34C759).copy(alpha = 0.8f)
-        isNextLevelAnimating -> Color(0xFFFF9500).copy(alpha = 0.8f)
         level.isCompleted -> Color(0xFF34C759).copy(alpha = 0.8f)
         level.isUnlocked -> Color(0xFFFF9500).copy(alpha = 0.8f)
-        else -> Color(0xFF8E8E93).copy(alpha = 0.5f)
+        else -> Color(0xFFE5E5EA) // BorderLight
     }
 }
 
@@ -211,13 +223,7 @@ private fun cardBackgroundColor(
     isCurrentLevelAnimating: Boolean,
     isNextLevelAnimating: Boolean
 ): Color {
-    return when {
-        isCurrentLevelAnimating -> Color(0xFFF0FFF4) // Light green tint
-        isNextLevelAnimating -> Color(0xFFFFF4E6) // Light orange tint
-        level.isCompleted -> Color(0xFFF0FFF4) // Light green
-        level.isUnlocked -> Color(0xFFFFF4E6) // Light orange
-        else -> Color(0xFFF2F2F7) // BackgroundSecondary
-    }
+    return Color.White
 }
 
 private fun cardBorderColor(
@@ -225,13 +231,7 @@ private fun cardBorderColor(
     isCurrentLevelAnimating: Boolean,
     isNextLevelAnimating: Boolean
 ): Color {
-    return when {
-        isCurrentLevelAnimating -> Color(0xFF34C759) // Animated green border
-        isNextLevelAnimating -> Color(0xFFFF9500) // Animated orange border
-        level.isCompleted -> Color(0xFF34C759).copy(alpha = 0.3f)
-        level.isUnlocked -> Color(0xFFFF9500).copy(alpha = 0.3f)
-        else -> Color(0xFFE5E5EA) // BorderLight
-    }
+    return Color(0xFFE5E5EA) // BorderLight
 }
 
 // MARK: - Animation Helper Functions
@@ -241,20 +241,8 @@ private fun animationScaleEffect(
     isNextLevelAnimating: Boolean
 ): Float {
     return when {
-        isCurrentLevelAnimating -> 1.2f // Scale up for completion
-        isNextLevelAnimating -> 1.1f // Scale up for unlock
+        isNextLevelAnimating -> 1.2f // Scale up for unlock (increased from 1.1f)
         else -> 1.0f
-    }
-}
-
-private fun animationOffsetX(
-    isCurrentLevelAnimating: Boolean,
-    isNextLevelAnimating: Boolean
-): Float {
-    return when {
-        isCurrentLevelAnimating -> 2f // Slight offset for completion
-        isNextLevelAnimating -> 1f // Slight offset for unlock
-        else -> 0f
     }
 }
 
@@ -263,8 +251,7 @@ private fun animationOffsetY(
     isNextLevelAnimating: Boolean
 ): Float {
     return when {
-        isCurrentLevelAnimating -> -2f // Slight upward offset
-        isNextLevelAnimating -> -1f // Slight upward offset
+        isNextLevelAnimating -> -8f // Upward offset for unlock (increased from -1f)
         else -> 0f
     }
 }
@@ -274,7 +261,6 @@ private fun animationShadowColor(
     isNextLevelAnimating: Boolean
 ): Color {
     return when {
-        isCurrentLevelAnimating -> Color(0xFF34C759).copy(alpha = 0.4f)
         isNextLevelAnimating -> Color(0xFFFF9500).copy(alpha = 0.4f)
         else -> Color.Transparent
     }
@@ -285,8 +271,7 @@ private fun animationShadowRadius(
     isNextLevelAnimating: Boolean
 ): Float {
     return when {
-        isCurrentLevelAnimating -> 12f
-        isNextLevelAnimating -> 8f
+        isNextLevelAnimating -> 20f // Increased from 8f
         else -> 0f
     }
 }
@@ -296,31 +281,8 @@ private fun cardScaleEffect(
     isNextLevelAnimating: Boolean
 ): Float {
     return when {
-        isCurrentLevelAnimating -> 1.05f
-        isNextLevelAnimating -> 1.02f
+        isNextLevelAnimating -> 1.08f // Increased from 1.02f
         else -> 1.0f
-    }
-}
-
-private fun cardShadowColor(
-    isCurrentLevelAnimating: Boolean,
-    isNextLevelAnimating: Boolean
-): Color {
-    return when {
-        isCurrentLevelAnimating -> Color(0xFF34C759).copy(alpha = 0.3f)
-        isNextLevelAnimating -> Color(0xFFFF9500).copy(alpha = 0.3f)
-        else -> Color(0xFF000000).copy(alpha = 0.1f)
-    }
-}
-
-private fun cardShadowRadius(
-    isCurrentLevelAnimating: Boolean,
-    isNextLevelAnimating: Boolean
-): Float {
-    return when {
-        isCurrentLevelAnimating -> 16f
-        isNextLevelAnimating -> 12f
-        else -> 4f
     }
 }
 

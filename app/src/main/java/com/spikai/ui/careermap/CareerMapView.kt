@@ -900,6 +900,7 @@ private fun EnglishLevel.pathDisplayText(): String {
         EnglishLevel.BASICO -> "A2 - Básico"
         EnglishLevel.INTERMEDIO -> "B1 - Intermedio"
         EnglishLevel.AVANZADO -> "B2/C1 - Avanzado"
+        EnglishLevel.B2B -> "Business"
     }
 }
 
@@ -909,6 +910,7 @@ private val EnglishLevel.description: String
         EnglishLevel.BASICO -> "Conversaciones simples y gramática elemental"
         EnglishLevel.INTERMEDIO -> "Comunicación efectiva en situaciones cotidianas"
         EnglishLevel.AVANZADO -> "Fluidez en conversaciones complejas y profesionales"
+        EnglishLevel.B2B -> "Niveles personalizados para negocios"
     }
 
 private fun pathColor(path: EnglishLevel): Color {
@@ -917,6 +919,7 @@ private fun pathColor(path: EnglishLevel): Color {
         EnglishLevel.BASICO -> Color(0xFF007AFF) // PrimaryBlue
         EnglishLevel.INTERMEDIO -> Color(0xFFFF9500) // WarningOrange
         EnglishLevel.AVANZADO -> Color(0xFF6B46C1) // PrimaryPurple
+        EnglishLevel.B2B -> Color(0xFF6B46C1) // PrimaryPurple
     }
 }
 
@@ -926,6 +929,7 @@ private fun pathIcon(path: EnglishLevel): ImageVector {
         EnglishLevel.BASICO -> Icons.Default.Book
         EnglishLevel.INTERMEDIO -> Icons.Default.Star
         EnglishLevel.AVANZADO -> Icons.Default.Grade
+        EnglishLevel.B2B -> Icons.Default.Business
     }
 }
 
