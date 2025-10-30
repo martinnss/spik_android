@@ -1,5 +1,6 @@
 package com.spikai.service
 
+import com.google.firebase.auth.FirebaseAuth
 import com.spikai.model.CareerLevel
 import com.spikai.model.LevelsResponse
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +28,14 @@ class LevelsService {
     
     suspend fun fetchLevels(): List<CareerLevel> {
         return withContext(Dispatchers.IO) {
-            val url = "$baseURL/get-levels"
+            val userId = FirebaseAuth.getInstance().currentUser?.uid
+            if (userId == null) {
+                val error = SpikError.AUTH_TOKEN_EXPIRED
+                errorHandler.showError(error)
+                throw SpikErrorException(error)
+            }
+            
+            val url = "$baseURL/levels?userId=$userId"
             
             println("🌐 [LevelsService] Starting API call to: $url")
             
