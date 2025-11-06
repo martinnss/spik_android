@@ -748,7 +748,7 @@ class WebRTCManager(private val context: Context) : ViewModel() {
                 ),
                 "input_audio_transcription" to mapOf(
                     "model" to "whisper-1",
-                    "language" to "en"
+                    "language" to "auto"
                 ),
                 "max_response_output_tokens" to "inf"
             )
