@@ -235,12 +235,19 @@ class ConversationViewModel(
     }
     
     fun endSession() {
-        webRTCManager.stopConnection()
-        
-        // End the level session without completion (user manually ended)
-        levelId?.let { id ->
-            println("🛑 [ConversationVM] Manually ending session for level: $id")
-            sessionTracker.endLevelSession(levelId = id, completed = false)
+        // If we have a level and conversation content, evaluate before ending
+        if (levelId != null && _conversation.value.isNotEmpty() && !_isEvaluatingLevel.value) {
+            println("🛑 [ConversationVM] User ended session - triggering level evaluation first...")
+            evaluateLevelProgression()
+            // Note: WebRTC connection will be ended after evaluation in handleLevelEvaluation()
+        } else {
+            // No level or empty conversation - just end normally
+            webRTCManager.stopConnection()
+            
+            levelId?.let { id ->
+                println("🛑 [ConversationVM] Manually ending session for level: $id without evaluation")
+                sessionTracker.endLevelSession(levelId = id, completed = false)
+            }
         }
     }
     
