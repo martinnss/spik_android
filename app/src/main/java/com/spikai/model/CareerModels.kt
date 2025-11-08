@@ -15,9 +15,12 @@ data class CareerLevel(
     val toLearn: List<String>,
     @SerialName("ios_symbol")
     val iosSymbol: String,
-    val isUnlocked: Boolean = false,
-    val isCompleted: Boolean = false,
+    @SerialName("is_unlocked")
+    var isUnlocked: Boolean = false,
+    @SerialName("is_completed")
+    var isCompleted: Boolean = false,
     val experience: Int = 0,
+    @SerialName("total_experience")
     val totalExperience: Int = 100
 ) {
     // Non-serializable properties

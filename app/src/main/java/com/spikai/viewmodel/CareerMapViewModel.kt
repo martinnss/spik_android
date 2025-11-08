@@ -339,14 +339,16 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
             _isLoading.value = true
             _errorMessage.value = null
             
-            val currentProgress = _progress.value
-            println("🔄 [CareerMapViewModel] Loading levels. Current progress - Completed: ${currentProgress.completedLevels}, Unlocked: ${currentProgress.unlockedLevels}")
+            println("🔄 [CareerMapVM] Loading levels from server...")
             
             try {
                 val apiLevels = levelsService.fetchLevels()
                 
                 println("📊 [CareerMapViewModel] Received ${apiLevels.size} total levels from API")
                 println("📊 [CareerMapViewModel] Level IDs: ${apiLevels.map { it.levelId }.sorted()}")
+                
+                // Sync completed levels from server (server is source of truth for passed levels)
+                syncServerStateWithLocalProgress(apiLevels)
                 
                 // Separate B2B levels (9000+) from regular levels
                 val regularLevels = apiLevels.filter { it.levelId < 9000 }
@@ -366,7 +368,7 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
                         toLearn = level.toLearn,
                         iosSymbol = level.iosSymbol,
                         isUnlocked = true, // All B2B levels are unlocked
-                        isCompleted = _progress.value.completedLevels.contains(level.levelId),
+                        isCompleted = _progress.value.completedLevels.contains(level.levelId), // From server
                         experience = getExperienceForLevel(level.levelId),
                         totalExperience = getTotalExperienceForLevel(level.levelId)
                     )
@@ -746,11 +748,10 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
             level.levelId >= pathBaseLevelId && level.levelId < pathBaseLevelId + 1000
         }
         
-        // If viewing a previous path (lower than user's level), show all levels
-        // If viewing current or future path, show normally
+        // Apply local unlock logic, but use server's completed state
         val levelsWithProgress = pathLevels.map { level ->
             val isUnlocked = shouldLevelBeUnlocked(level.levelId)
-            val isCompleted = _progress.value.completedLevels.contains(level.levelId)
+            val isCompleted = _progress.value.completedLevels.contains(level.levelId) // From server
             
             CareerLevel(
                 levelId = level.levelId,
@@ -810,5 +811,32 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
                 }
             }
         }
+    }
+    
+    private fun syncServerStateWithLocalProgress(serverLevels: List<CareerLevel>) {
+        println("🔄 [CareerMapVM] Syncing completed levels from server...")
+        
+        // Only sync completed levels from server (server is source of truth for what's been passed)
+        // Keep local unlock logic based on user's English level
+        val updatedCompletedLevels = mutableSetOf<Int>()
+        
+        for (level in serverLevels) {
+            if (level.isCompleted) {
+                updatedCompletedLevels.add(level.levelId)
+            }
+        }
+        
+        // Update completed levels from server
+        _progress.value = _progress.value.copy(completedLevels = updatedCompletedLevels)
+        
+        // Keep existing unlock logic - don't override from server
+        // This ensures new users see correct path based on onboarding assessment
+        
+        // Save to local storage
+        saveProgressToSharedPreferences()
+        
+        println("✅ [CareerMapVM] Synced completed levels from server: ${updatedCompletedLevels.size}")
+        println("📋 [CareerMapVM] Completed levels: ${updatedCompletedLevels.sorted()}")
+        println("📋 [CareerMapVM] Unlocked levels (local logic): ${_progress.value.unlockedLevels.sorted()}")
     }
 }
