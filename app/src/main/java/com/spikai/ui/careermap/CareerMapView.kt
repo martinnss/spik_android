@@ -1,7 +1,11 @@
 package com.spikai.ui.careermap
 
 import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -61,6 +66,9 @@ fun CareerMapView(
     var showingConversation by remember { mutableStateOf(false) }
     var selectedLevelForConversation by remember { mutableStateOf<Pair<Int, String>?>(null) }
     
+    // Highlight mode for first level - only show when user has no completed levels
+    var isHighlightMode by remember { mutableStateOf(false) }
+    
     // Node-based animation states
     var isAnimatingUnlock by remember { mutableStateOf(false) }
     var currentLevelAnimating by remember { mutableStateOf(false) }
@@ -90,13 +98,21 @@ fun CareerMapView(
             // TODO: Implement level unlock listener
             // setupLevelUnlockListener()
             viewModel.loadCareerLevels()
+            
+            // Set initial highlight mode based on completed levels
+            isHighlightMode = progress.completedLevels.isEmpty()
         }
     }
     
-    // Monitor completed levels for animation
+    // Monitor completed levels for animation and auto-dismiss highlight mode
     LaunchedEffect(progress.completedLevels) {
         // TODO: Implement animation logic for level completion
         // onChange(of: vfiewModel.progress.completedLevels) logic here
+        
+        // Dismiss highlight mode when user completes their first level
+        if (progress.completedLevels.isNotEmpty() && isHighlightMode) {
+            isHighlightMode = false
+        }
     }
     
     Box(modifier = Modifier.fillMaxSize()) {
@@ -124,9 +140,11 @@ fun CareerMapView(
                 nextLevelAnimating = nextLevelAnimating,
                 animatingCompletedLevelId = animatingCompletedLevelId,
                 animatingUnlockedLevelId = animatingUnlockedLevelId,
+                isHighlightMode = isHighlightMode,
                 onProfileClick = { showingProfile = true },
                 onPathSelectorClick = { showingPathSelector = true },
-                onLanguageSelectorClick = { showingLanguageSelector = true }
+                onLanguageSelectorClick = { showingLanguageSelector = true },
+                onDismissWalkthrough = { isHighlightMode = false }
             )
         }
     }
@@ -610,9 +628,11 @@ private fun MainContent(
     nextLevelAnimating: Boolean,
     animatingCompletedLevelId: Int?,
     animatingUnlockedLevelId: Int?,
+    isHighlightMode: Boolean,
     onProfileClick: () -> Unit,
     onPathSelectorClick: () -> Unit,
-    onLanguageSelectorClick: () -> Unit
+    onLanguageSelectorClick: () -> Unit,
+    onDismissWalkthrough: () -> Unit
 ) {
     val listState = rememberLazyListState()
     
@@ -646,34 +666,119 @@ private fun MainContent(
         }
     }
     
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Header Section - Fixed at top
-        HeaderSection(
-            userProfile = userProfile,
-            onProfileClick = onProfileClick,
-            onLanguageSelectorClick = onLanguageSelectorClick,
-            onPathSelectorClick = onPathSelectorClick,
-            viewModel = viewModel
-        )
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Main background with dark overlay
+        Color(0xFFF2F2F7) // BackgroundPrimary
+            .let { backgroundColor ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(backgroundColor)
+                        .clickable(enabled = isHighlightMode) {
+                            if (isHighlightMode) {
+                                onDismissWalkthrough()
+                            }
+                        }
+                ) {
+                    // Dark overlay when in highlight mode
+                    if (isHighlightMode) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.85f))
+                        )
+                    }
+                }
+            }
         
-        // Scrollable Levels Section
-        LazyColumn(
-            state = listState,
+        // Main content
+        Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            item {
-                PathSection(
-                    viewModel = viewModel,
-                    levels = levels,
-                    currentLevelAnimating = currentLevelAnimating,
-                    nextLevelAnimating = nextLevelAnimating,
-                    lineAnimating = lineAnimating,
-                    animatingCompletedLevelId = animatingCompletedLevelId,
-                    animatingUnlockedLevelId = animatingUnlockedLevelId
+            // Header Section - Fixed at top with overlay
+            Box {
+                HeaderSection(
+                    userProfile = userProfile,
+                    onProfileClick = onProfileClick,
+                    onLanguageSelectorClick = onLanguageSelectorClick,
+                    onPathSelectorClick = onPathSelectorClick,
+                    viewModel = viewModel
                 )
+                
+                // Header overlay
+                if (isHighlightMode) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(Color.Black.copy(alpha = 0.85f))
+                            .clickable { onDismissWalkthrough() }
+                    )
+                }
             }
+            
+            // Gradient section with overlay
+            Box {
+                // Spacer for gradient effect
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp) // Minimal spacing between header and levels
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFFF2F2F7), // BackgroundPrimary
+                                    Color.Transparent
+                                ),
+                                startY = 0f,
+                                endY = 40f
+                            )
+                        )
+                )
+                
+                // Gradient overlay
+                if (isHighlightMode) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(Color.Black.copy(alpha = 0.85f))
+                            .clickable { onDismissWalkthrough() }
+                            .zIndex(10f)
+                    )
+                }
+            }
+            
+            // Scrollable Levels Section
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    PathSection(
+                        viewModel = viewModel,
+                        levels = levels,
+                        currentLevelAnimating = currentLevelAnimating,
+                        nextLevelAnimating = nextLevelAnimating,
+                        lineAnimating = lineAnimating,
+                        animatingCompletedLevelId = animatingCompletedLevelId,
+                        animatingUnlockedLevelId = animatingUnlockedLevelId,
+                        isHighlightMode = isHighlightMode,
+                        onDismissWalkthrough = onDismissWalkthrough
+                    )
+                }
+            }
+        }
+        
+        // Walkthrough message popup
+        AnimatedVisibility(
+            visible = isHighlightMode,
+            enter = scaleIn() + androidx.compose.animation.fadeIn(),
+            exit = scaleOut() + androidx.compose.animation.fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 140.dp)
+                .zIndex(1001f)
+        ) {
+            WalkthroughMessagePopup()
         }
     }
 }
@@ -767,36 +872,58 @@ private fun PathSection(
     nextLevelAnimating: Boolean,
     lineAnimating: Boolean,
     animatingCompletedLevelId: Int?,
-    animatingUnlockedLevelId: Int?
+    animatingUnlockedLevelId: Int?,
+    isHighlightMode: Boolean,
+    onDismissWalkthrough: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 40.dp)
-            .padding(bottom = 40.dp),
+            .padding(bottom = 40.dp)
+            .background(Color.Transparent)
+            .clickable(enabled = isHighlightMode) {
+                if (isHighlightMode) {
+                    onDismissWalkthrough()
+                }
+            },
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         levels.forEach { level ->
             val index = levels.indexOf(level)
             val isCurrentLevelAnimating = currentLevelAnimating && animatingCompletedLevelId == level.levelId
             val isNextLevelAnimating = nextLevelAnimating && animatingUnlockedLevelId == level.levelId
+            val isFirstLevel = index == 0
             
             Column {
                 LevelNodeView(
                     level = level,
                     isCurrentLevelAnimating = isCurrentLevelAnimating,
                     isNextLevelAnimating = isNextLevelAnimating,
+                    isFirstLevel = isFirstLevel,
+                    isHighlightMode = isHighlightMode,
                     onTap = { viewModel.selectLevel(level) }
                 )
                 
                 // Path connector to next level
                 if (index < levels.size - 1) {
                     val nextLevel = levels[index + 1]
-                    PathConnector(
-                        nextLevel = nextLevel,
-                        lineAnimating = lineAnimating,
-                        animatingUnlockedLevelId = animatingUnlockedLevelId
-                    )
+                    Box {
+                        PathConnector(
+                            nextLevel = nextLevel,
+                            lineAnimating = lineAnimating,
+                            animatingUnlockedLevelId = animatingUnlockedLevelId
+                        )
+                        
+                        // Path connector overlay
+                        if (isHighlightMode) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .background(Color.Black.copy(alpha = 0.85f))
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -833,6 +960,55 @@ private fun PathConnector(
                     color = color,
                     shape = RoundedCornerShape(width.dp / 2)
                 )
+        )
+    }
+}
+
+@Composable
+private fun WalkthroughMessagePopup() {
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 40.dp)
+            .background(
+                color = Color(0xFFF2F2F7), // BackgroundSecondary
+                shape = RoundedCornerShape(16.dp)
+            )
+            .shadow(
+                elevation = 12.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = Color(0xFF000000).copy(alpha = 0.2f),
+                spotColor = Color(0xFF000000).copy(alpha = 0.2f)
+            )
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Header with icon and primary text
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.TouchApp,
+                contentDescription = null,
+                tint = Color(0xFFFF9500), // WarningOrange
+                modifier = Modifier.size(24.dp)
+            )
+            
+            Text(
+                text = "Comienza tu primer nivel ahora",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1C1C1E) // TextPrimary
+            )
+        }
+        
+        // Secondary explanatory text
+        Text(
+            text = "Toca el nivel destacado para empezar tu aprendizaje",
+            fontSize = 14.sp,
+            color = Color(0xFF8E8E93), // TextSecondary
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }

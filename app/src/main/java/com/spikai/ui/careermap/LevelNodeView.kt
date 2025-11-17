@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -31,6 +32,8 @@ fun LevelNodeView(
     level: CareerLevel,
     isCurrentLevelAnimating: Boolean,
     isNextLevelAnimating: Boolean,
+    isFirstLevel: Boolean,
+    isHighlightMode: Boolean,
     onTap: () -> Unit
 ) {
     // Add breathing animation state for completed levels
@@ -72,6 +75,11 @@ fun LevelNodeView(
                 .fillMaxWidth()
                 .clickable(enabled = level.isUnlocked || isNextLevelAnimating) { onTap() }
                 .scale(cardScaleEffect(isCurrentLevelAnimating, isNextLevelAnimating))
+                .background(
+                    // Extra background layer for first level to ensure it's fully opaque
+                    if (isFirstLevel && isHighlightMode) Color(0xFFF2F2F7) else Color.Transparent // BackgroundSecondary
+                )
+                .zIndex(if (isFirstLevel && isHighlightMode) 1000f else 0f)
                 .shadow(
                     elevation = animationShadowRadius(isCurrentLevelAnimating, isNextLevelAnimating).dp,
                     shape = RoundedCornerShape(16.dp),
