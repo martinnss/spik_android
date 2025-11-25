@@ -741,7 +741,7 @@ class CareerMapViewModel(private val context: Context) : ViewModel() {
         // Regular path handling
         val pathBaseLevelId = _currentSelectedPath.value.baseLevelId
         val userLevel = userProfile?.englishLevel ?: EnglishLevel.PRINCIPIANTE
-        val userBaseLevelId = userLevel.baseLevelId
+        userLevel.baseLevelId
         
         // Filter levels for the selected path
         val pathLevels = allLevels.filter { level ->

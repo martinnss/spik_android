@@ -61,6 +61,18 @@ fun LevelNodeView(
     } else {
         animationScaleEffect(isCurrentLevelAnimating, isNextLevelAnimating)
     }
+
+    // Highlight mode animation
+    val highlightTransition = rememberInfiniteTransition(label = "highlight")
+    val highlightShadowRadius by highlightTransition.animateFloat(
+        initialValue = 8f,
+        targetValue = 20f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "highlight_shadow"
+    )
     
     Box(
         modifier = Modifier
@@ -73,7 +85,7 @@ fun LevelNodeView(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = level.isUnlocked || isNextLevelAnimating) { onTap() }
+                .clickable(enabled = level.isUnlocked || isNextLevelAnimating || (isFirstLevel && isHighlightMode)) { onTap() }
                 .scale(cardScaleEffect(isCurrentLevelAnimating, isNextLevelAnimating))
                 .background(
                     // Extra background layer for first level to ensure it's fully opaque
@@ -81,10 +93,19 @@ fun LevelNodeView(
                 )
                 .zIndex(if (isFirstLevel && isHighlightMode) 1000f else 0f)
                 .shadow(
-                    elevation = animationShadowRadius(isCurrentLevelAnimating, isNextLevelAnimating).dp,
+                    elevation = if (isFirstLevel && isHighlightMode) highlightShadowRadius.dp else animationShadowRadius(isCurrentLevelAnimating, isNextLevelAnimating).dp,
                     shape = RoundedCornerShape(16.dp),
-                    ambientColor = animationShadowColor(isCurrentLevelAnimating, isNextLevelAnimating),
-                    spotColor = animationShadowColor(isCurrentLevelAnimating, isNextLevelAnimating)
+                    ambientColor = if (isFirstLevel && isHighlightMode) Color(0xFFFF9500) else animationShadowColor(isCurrentLevelAnimating, isNextLevelAnimating),
+                    spotColor = if (isFirstLevel && isHighlightMode) Color(0xFFFF9500) else animationShadowColor(isCurrentLevelAnimating, isNextLevelAnimating)
+                )
+                .then(
+                    if (isFirstLevel && isHighlightMode) {
+                        Modifier.border(
+                            width = 2.dp,
+                            color = Color(0xFFFF9500).copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                    } else Modifier
                 ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)

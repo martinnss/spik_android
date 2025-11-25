@@ -5,7 +5,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -68,6 +70,7 @@ fun CareerMapView(
     
     // Highlight mode for first level - only show when user has no completed levels
     var isHighlightMode by remember { mutableStateOf(false) }
+    var hasDismissedWalkthrough by remember { mutableStateOf(false) }
     
     // Node-based animation states
     var isAnimatingUnlock by remember { mutableStateOf(false) }
@@ -98,20 +101,26 @@ fun CareerMapView(
             // TODO: Implement level unlock listener
             // setupLevelUnlockListener()
             viewModel.loadCareerLevels()
-            
-            // Set initial highlight mode based on completed levels
-            isHighlightMode = progress.completedLevels.isEmpty()
         }
     }
     
-    // Monitor completed levels for animation and auto-dismiss highlight mode
-    LaunchedEffect(progress.completedLevels) {
-        // TODO: Implement animation logic for level completion
-        // onChange(of: vfiewModel.progress.completedLevels) logic here
-        
-        // Dismiss highlight mode when user completes their first level
-        if (progress.completedLevels.isNotEmpty() && isHighlightMode) {
+    // Monitor completed levels and authentication status to drive walkthrough state
+    LaunchedEffect(isUserSignedIn, progress.completedLevels) {
+        if (!isUserSignedIn) {
             isHighlightMode = false
+            hasDismissedWalkthrough = false
+            return@LaunchedEffect
+        }
+        
+        if (progress.completedLevels.isEmpty()) {
+            if (!hasDismissedWalkthrough) {
+                isHighlightMode = true
+            }
+        } else {
+            if (isHighlightMode) {
+                isHighlightMode = false
+            }
+            hasDismissedWalkthrough = true
         }
     }
     
@@ -144,7 +153,10 @@ fun CareerMapView(
                 onProfileClick = { showingProfile = true },
                 onPathSelectorClick = { showingPathSelector = true },
                 onLanguageSelectorClick = { showingLanguageSelector = true },
-                onDismissWalkthrough = { isHighlightMode = false }
+                onDismissWalkthrough = {
+                    hasDismissedWalkthrough = true
+                    isHighlightMode = false
+                }
             )
         }
     }
@@ -635,6 +647,7 @@ private fun MainContent(
     onDismissWalkthrough: () -> Unit
 ) {
     val listState = rememberLazyListState()
+    val overlayColor = Color.Black.copy(alpha = 0.78f)
     
     // Auto-scroll to the current level (first unlocked but not completed) on initial load
     LaunchedEffect(levels) {
@@ -644,53 +657,41 @@ private fun MainContent(
                 println("🔍 [CareerMapView] Level ${level.levelId} (index $index): isUnlocked=${level.isUnlocked}, isCompleted=${level.isCompleted}")
             }
             
-            // Find the first unlocked level that is not completed (current level to work on)
-            val currentLevelIndex = levels.indexOfFirst { it.isUnlocked && !it.isCompleted }
+            // Only scroll if user has completed at least one level
+            val hasCompletedAnyLevel = levels.any { it.isCompleted }
             
-            println("📍 [CareerMapView] Current level index: $currentLevelIndex")
-            if (currentLevelIndex >= 0) {
-                println("📍 [CareerMapView] Will scroll to level: ${levels[currentLevelIndex].levelId}")
-            }
-            
-            // If found, scroll to it. If not found (all completed), scroll to last completed
-            val targetIndex = if (currentLevelIndex >= 0) {
-                currentLevelIndex
+            if (hasCompletedAnyLevel) {
+                // Find the first unlocked level that is not completed (current level to work on)
+                val currentLevelIndex = levels.indexOfFirst { it.isUnlocked && !it.isCompleted }
+                
+                println("📍 [CareerMapView] Current level index: $currentLevelIndex")
+                if (currentLevelIndex >= 0) {
+                    println("📍 [CareerMapView] Will scroll to level: ${levels[currentLevelIndex].levelId}")
+                }
+                
+                // If found, scroll to it. If not found (all completed), scroll to last completed
+                val targetIndex = if (currentLevelIndex >= 0) {
+                    currentLevelIndex
+                } else {
+                    // If no unlocked incomplete level, find last completed level
+                    levels.indexOfLast { it.isCompleted }.takeIf { it >= 0 } ?: 0
+                }
+                
+                // Scroll to show the target level
+                delay(300) // Small delay to ensure layout is complete
+                listState.animateScrollToItem(targetIndex)
             } else {
-                // If no unlocked incomplete level, find last completed level
-                levels.indexOfLast { it.isCompleted }.takeIf { it >= 0 } ?: 0
+                // No levels completed yet - stay at the top (index 0)
+                println("📍 [CareerMapView] No levels completed yet, staying at top")
             }
-            
-            // Scroll to show the target level (allow scrolling to index 0 too)
-            delay(300) // Small delay to ensure layout is complete
-            listState.animateScrollToItem(targetIndex)
         }
     }
     
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Main background with dark overlay
-        Color(0xFFF2F2F7) // BackgroundPrimary
-            .let { backgroundColor ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(backgroundColor)
-                        .clickable(enabled = isHighlightMode) {
-                            if (isHighlightMode) {
-                                onDismissWalkthrough()
-                            }
-                        }
-                ) {
-                    // Dark overlay when in highlight mode
-                    if (isHighlightMode) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.85f))
-                        )
-                    }
-                }
-            }
-        
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF2F2F7))
+    ) {
         // Main content
         Column(
             modifier = Modifier.fillMaxSize()
@@ -705,13 +706,15 @@ private fun MainContent(
                     viewModel = viewModel
                 )
                 
-                // Header overlay
                 if (isHighlightMode) {
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .background(Color.Black.copy(alpha = 0.85f))
-                            .clickable { onDismissWalkthrough() }
+                            .background(overlayColor)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { onDismissWalkthrough() }
                     )
                 }
             }
@@ -735,14 +738,15 @@ private fun MainContent(
                         )
                 )
                 
-                // Gradient overlay
                 if (isHighlightMode) {
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .background(Color.Black.copy(alpha = 0.85f))
-                            .clickable { onDismissWalkthrough() }
-                            .zIndex(10f)
+                            .background(overlayColor)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { onDismissWalkthrough() }
                     )
                 }
             }
@@ -762,9 +766,41 @@ private fun MainContent(
                         animatingCompletedLevelId = animatingCompletedLevelId,
                         animatingUnlockedLevelId = animatingUnlockedLevelId,
                         isHighlightMode = isHighlightMode,
+                        overlayColor = overlayColor,
                         onDismissWalkthrough = onDismissWalkthrough
                     )
                 }
+            }
+        }
+        
+        if (isHighlightMode) {
+            // Darken outer gutters (sides) while keeping path center untouched
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(900f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .fillMaxHeight()
+                        .background(overlayColor)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onDismissWalkthrough() }
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .width(40.dp)
+                        .fillMaxHeight()
+                        .background(overlayColor)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onDismissWalkthrough() }
+                )
             }
         }
         
@@ -775,7 +811,7 @@ private fun MainContent(
             exit = scaleOut() + androidx.compose.animation.fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 140.dp)
+                .padding(top = 90.dp)
                 .zIndex(1001f)
         ) {
             WalkthroughMessagePopup()
@@ -874,19 +910,14 @@ private fun PathSection(
     animatingCompletedLevelId: Int?,
     animatingUnlockedLevelId: Int?,
     isHighlightMode: Boolean,
+    overlayColor: Color,
     onDismissWalkthrough: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 40.dp)
-            .padding(bottom = 40.dp)
-            .background(Color.Transparent)
-            .clickable(enabled = isHighlightMode) {
-                if (isHighlightMode) {
-                    onDismissWalkthrough()
-                }
-            },
+            .padding(bottom = 40.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         levels.forEach { level ->
@@ -896,14 +927,33 @@ private fun PathSection(
             val isFirstLevel = index == 0
             
             Column {
-                LevelNodeView(
-                    level = level,
-                    isCurrentLevelAnimating = isCurrentLevelAnimating,
-                    isNextLevelAnimating = isNextLevelAnimating,
-                    isFirstLevel = isFirstLevel,
-                    isHighlightMode = isHighlightMode,
-                    onTap = { viewModel.selectLevel(level) }
-                )
+                Box {
+                    LevelNodeView(
+                        level = level,
+                        isCurrentLevelAnimating = isCurrentLevelAnimating,
+                        isNextLevelAnimating = isNextLevelAnimating,
+                        isFirstLevel = isFirstLevel,
+                        isHighlightMode = isHighlightMode,
+                        onTap = { 
+                            if (isHighlightMode) {
+                                onDismissWalkthrough()
+                            }
+                            viewModel.selectLevel(level) 
+                        }
+                    )
+                    
+                    if (isHighlightMode && !isFirstLevel) {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(overlayColor)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { onDismissWalkthrough() }
+                        )
+                    }
+                }
                 
                 // Path connector to next level
                 if (index < levels.size - 1) {
@@ -915,12 +965,15 @@ private fun PathSection(
                             animatingUnlockedLevelId = animatingUnlockedLevelId
                         )
                         
-                        // Path connector overlay
                         if (isHighlightMode) {
                             Box(
                                 modifier = Modifier
                                     .matchParentSize()
-                                    .background(Color.Black.copy(alpha = 0.85f))
+                                    .background(overlayColor)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { onDismissWalkthrough() }
                             )
                         }
                     }
@@ -966,18 +1019,35 @@ private fun PathConnector(
 
 @Composable
 private fun WalkthroughMessagePopup() {
+    // Add pulse animation
+    val infiniteTransition = rememberInfiniteTransition(label = "popup_pulse")
+    val shadowRadius by infiniteTransition.animateFloat(
+        initialValue = 8f,
+        targetValue = 16f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "popup_shadow"
+    )
+
     Column(
         modifier = Modifier
             .padding(horizontal = 40.dp)
+            .shadow(
+                elevation = shadowRadius.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = Color(0xFFFF9500), // Orange glow
+                spotColor = Color(0xFFFF9500)
+            )
             .background(
                 color = Color(0xFFF2F2F7), // BackgroundSecondary
                 shape = RoundedCornerShape(16.dp)
             )
-            .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(16.dp),
-                ambientColor = Color(0xFF000000).copy(alpha = 0.2f),
-                spotColor = Color(0xFF000000).copy(alpha = 0.2f)
+            .border(
+                width = 2.dp,
+                color = Color(0xFFFF9500).copy(alpha = 0.6f),
+                shape = RoundedCornerShape(16.dp)
             )
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)

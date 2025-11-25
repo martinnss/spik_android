@@ -35,7 +35,7 @@ fun AssessmentStepView(
     val currentQuestionIndex by viewModel.currentQuestionIndex.collectAsStateWithLifecycle()
     
     val currentQuestion = AssessmentQuestion.allCases[currentQuestionIndex]
-    val isLastQuestion = currentQuestionIndex == AssessmentQuestion.allCases.size - 1
+    currentQuestionIndex == AssessmentQuestion.allCases.size - 1
     
     Column(
         modifier = Modifier
