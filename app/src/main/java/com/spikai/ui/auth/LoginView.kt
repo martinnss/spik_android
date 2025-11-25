@@ -34,7 +34,7 @@ fun LoginView(
     onSuccessfulLogin: (() -> Unit)? = null,
     onDismiss: () -> Unit = {}
 ) {
-    val context = LocalContext.current
+    LocalContext.current
     val scrollState = rememberScrollState()
     
 

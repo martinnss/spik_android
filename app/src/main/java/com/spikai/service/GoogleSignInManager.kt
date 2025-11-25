@@ -373,9 +373,5 @@ class GoogleSignInManager private constructor(
         preferencesManager.setOnboardingCompleted(true)
         Log.d(TAG, "✅ Onboarding marked as completed for authenticated user")
     }
-    
-    override fun onCleared() {
-        super.onCleared()
-        // Cleanup if needed
-    }
+
 }
