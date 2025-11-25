@@ -177,8 +177,8 @@ class StreakViewModel(
             _isStreakActive.value = false
             return
         }
-        
-        val calendar = Calendar.getInstance()
+
+        Calendar.getInstance()
         val today = Date()
         
         println("📅 [StreakVM] Today: $today")

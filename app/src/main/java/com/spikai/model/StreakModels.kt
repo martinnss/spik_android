@@ -156,7 +156,7 @@ data class StreakData(
                 val isCompleted: Boolean = if (lastSessionDate != null) {
                     val lastSessionCalendar = Calendar.getInstance().apply { time = lastSessionDate }
                     val dayCalendar = Calendar.getInstance().apply { time = dayDate }
-                    val todayCalendar = Calendar.getInstance().apply { time = today }
+                    Calendar.getInstance().apply { time = today }
                     
                     val daysSinceLastSession = ((lastSessionCalendar.timeInMillis - dayCalendar.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
                     daysSinceLastSession >= 0 && daysSinceLastSession < streakDays && dayDate.time <= today.time

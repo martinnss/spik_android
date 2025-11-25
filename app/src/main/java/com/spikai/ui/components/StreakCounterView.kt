@@ -87,12 +87,7 @@ private fun StatusMessageView(
     message: String,
     isStreakActive: Boolean
 ) {
-    val animatedAlpha by animateFloatAsState(
-        targetValue = if (!isStreakActive) 1f else 0f,
-        animationSpec = tween(durationMillis = 300, easing = EaseInOut),
-        label = "status_message_alpha"
-    )
-    
+
     val animatedScale by animateFloatAsState(
         targetValue = if (!isStreakActive) 1f else 0.95f,
         animationSpec = tween(durationMillis = 300, easing = EaseInOut),
@@ -120,12 +115,7 @@ private fun StreakContentView(
     isStreakActive: Boolean,
     streakText: String
 ) {
-    val animatedOpacity by animateFloatAsState(
-        targetValue = if (isLoading) 0.7f else (if (isStreakActive) 1.0f else 0.6f),
-        animationSpec = tween(durationMillis = 300, easing = EaseInOut),
-        label = "content_opacity"
-    )
-    
+
     val animatedScale by animateFloatAsState(
         targetValue = if (isStreakActive) 1.0f else 1.02f,
         animationSpec = tween(durationMillis = 500, easing = EaseInOut),

@@ -107,12 +107,12 @@ class FCMTokenService(private val context: Context) {
                         }
                         401 -> {
                             println("❌ [FCMTokenService] Authentication failed")
-                            val error = SpikError.AUTH_TOKEN_EXPIRED
+                            SpikError.AUTH_TOKEN_EXPIRED
                             errorHandler.logError(RuntimeException("Authentication failed"))
                         }
                         403 -> {
                             println("❌ [FCMTokenService] Access forbidden")
-                            val error = SpikError.AUTHENTICATION_FAILED
+                            SpikError.AUTHENTICATION_FAILED
                             errorHandler.logError(RuntimeException("Access forbidden"))
                         }
                         404 -> {
@@ -122,7 +122,7 @@ class FCMTokenService(private val context: Context) {
                         }
                         in 500..599 -> {
                             println("❌ [FCMTokenService] Server error (${response.code})")
-                            val error = SpikError.SERVER_UNAVAILABLE
+                            SpikError.SERVER_UNAVAILABLE
                             errorHandler.logError(RuntimeException("Server error: ${response.code}"))
                         }
                         else -> {
@@ -130,7 +130,7 @@ class FCMTokenService(private val context: Context) {
                             response.body?.string()?.let { responseString ->
                                 println("📦 [FCMTokenService] Error response: $responseString")
                             }
-                            val error = SpikError.SERVER_UNAVAILABLE
+                            SpikError.SERVER_UNAVAILABLE
                             errorHandler.logError(RuntimeException("Unexpected status: ${response.code}"))
                         }
                     }
@@ -139,7 +139,7 @@ class FCMTokenService(private val context: Context) {
             } catch (error: Exception) {
                 withContext(Dispatchers.Main) {
                     println("❌ [FCMTokenService] Network error: ${error.message}")
-                    val spikError = errorHandler.handleError(error)
+                    errorHandler.handleError(error)
                     errorHandler.logError(error)
                 }
             }
@@ -164,7 +164,7 @@ class FCMTokenService(private val context: Context) {
             } catch (error: Exception) {
                 withContext(Dispatchers.Main) {
                     println("❌ [FCMTokenService] Error fetching FCM token: ${error.message}")
-                    val spikError = SpikError.NOTIFICATION_SETUP_FAILED
+                    SpikError.NOTIFICATION_SETUP_FAILED
                     errorHandler.logError(error)
                 }
             }
