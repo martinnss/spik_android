@@ -25,8 +25,8 @@ android {
         applicationId = "com.spikai"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.1.4"
+        versionCode = 10
+        versionName = "1.1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -61,6 +61,14 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+
+    packaging {
+        jniLibs {
+            // If you encounter 16KB page alignment issues with native libraries,
+            // you can try enabling legacy packaging to force compression and extraction.
+            useLegacyPackaging = true
+        }
     }
 }
 
@@ -104,7 +112,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     
     // WebRTC for real-time communication
-    implementation("io.github.webrtc-sdk:android:114.5735.03")
+    implementation("io.github.webrtc-sdk:android:137.7151.04")
     implementation(libs.firebase.auth)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
