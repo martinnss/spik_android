@@ -41,6 +41,7 @@ fun OnboardingView(
     // Observe completion state
     LaunchedEffect(userProfile.hasCompletedOnboarding) {
         if (userProfile.hasCompletedOnboarding) {
+            com.spikai.service.AnalyticsService.logOnboardingComplete()
             onOnboardingComplete()
         }
     }
@@ -48,6 +49,9 @@ fun OnboardingView(
     // Load user profile on appear
     LaunchedEffect(Unit) {
         viewModel.loadUserProfile()
+        if (currentStep == OnboardingStep.WELCOME) {
+            com.spikai.service.AnalyticsService.logOnboardingStart()
+        }
     }
     
     Box(

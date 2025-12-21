@@ -61,6 +61,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -113,6 +114,7 @@ dependencies {
     
     // WebRTC for real-time communication
     implementation("io.github.webrtc-sdk:android:137.7151.04")
+    implementation("com.google.firebase:firebase-analytics")
     implementation(libs.firebase.auth)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)

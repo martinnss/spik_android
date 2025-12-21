@@ -14,6 +14,13 @@ import com.spikai.viewmodel.AppViewModel
 fun SpikAIApp(
     appViewModel: AppViewModel = viewModel()
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    LaunchedEffect(Unit) {
+        // Log initial user properties
+        com.spikai.service.UserPreferencesService.getInstance(context).logCurrentReminderSettings()
+    }
+
     val hasCompletedOnboarding by appViewModel.hasCompletedOnboarding.collectAsStateWithLifecycle()
     val isSignedIn by appViewModel.isSignedIn.collectAsStateWithLifecycle()
     

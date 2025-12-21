@@ -220,6 +220,13 @@ class GoogleSignInManager private constructor(
             Log.d(TAG, "🏷️ Display Name: ${user.displayName}")
             Log.d(TAG, "📸 Photo URL: ${user.photoUrl}")
             
+            // Analytics
+            AnalyticsService.setUserProperty(user.uid)
+            AnalyticsService.logLogin("google")
+            if (authResult.additionalUserInfo?.isNewUser == true) {
+                AnalyticsService.logSignUp("google")
+            }
+
             // Save to Firestore
             Log.d(TAG, "💾 Saving user data to Firestore...")
             val success = saveUserToFirestore(user)
@@ -254,6 +261,9 @@ class GoogleSignInManager private constructor(
                 
                 auth.signOut()
                 Log.d(TAG, "✅ Firebase Auth sign out completed")
+                
+                // Analytics
+                AnalyticsService.logSignOut()
                 
                 _isSignedIn.value = false
                 _currentUser.value = null

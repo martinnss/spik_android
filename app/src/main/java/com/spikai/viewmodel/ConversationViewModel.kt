@@ -13,6 +13,7 @@ import com.spikai.service.ErrorHandlingService
 import com.spikai.service.SessionTrackingService
 import com.spikai.service.UserPreferencesService
 import com.spikai.service.WebRTCManager
+import com.spikai.service.AnalyticsService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,6 +79,9 @@ class ConversationViewModel(
     
     // Track when AI last spoke to trigger analysis
     private var lastAIMessageCount = 0
+    
+    // Analytics
+    private var sessionStartTime: Long? = null
     
     // MARK: - Initialization
     init {
@@ -223,6 +227,10 @@ class ConversationViewModel(
             
             println("Starting session with ephemeral token and speed: ${_aiSpeakingSpeed.value}")
             
+            // Analytics
+            sessionStartTime = System.currentTimeMillis()
+            AnalyticsService.logConversationStart(levelId, _aiSpeakingSpeed.value)
+            
             // Wrap WebRTC start in error handling
             try {
                 webRTCManager.fetchSessionConfigAndStartConnection(levelId = levelId, speed = _aiSpeakingSpeed.value)
@@ -235,6 +243,13 @@ class ConversationViewModel(
     }
     
     fun endSession() {
+        // Analytics
+        sessionStartTime?.let { startTime ->
+            val duration = (System.currentTimeMillis() - startTime) / 1000.0
+            AnalyticsService.logConversationEnd(duration, _conversation.value.size)
+            sessionStartTime = null
+        }
+
         // If we have a level and conversation content, evaluate before ending
         if (levelId != null && _conversation.value.isNotEmpty() && !_isEvaluatingLevel.value) {
             println("🛑 [ConversationVM] User ended session - triggering level evaluation first...")
@@ -428,6 +443,11 @@ class ConversationViewModel(
         if (evaluation.passed) {
             println("✅ [ConversationVM] Level passed - calling completeLevel()")
             completeLevel()
+            
+            // Analytics
+            levelId?.let {
+                AnalyticsService.logLevelUp(it)
+            }
         } else {
             println("❌ [ConversationVM] Level failed - calling failLevel()")
             failLevel()

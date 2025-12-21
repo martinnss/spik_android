@@ -48,6 +48,9 @@ import kotlinx.coroutines.delay
 fun CareerMapView(
     viewModel: CareerMapViewModel = CareerMapViewModel.getInstance(LocalContext.current)
 ) {
+    val context = LocalContext.current
+    val userPreferencesService = remember { com.spikai.service.UserPreferencesService.getInstance(context) }
+    
     val progress by viewModel.progress.collectAsStateWithLifecycle()
     val levels by viewModel.levels.collectAsStateWithLifecycle()
     val selectedLevel by viewModel.selectedLevel.collectAsStateWithLifecycle()
@@ -64,6 +67,7 @@ fun CareerMapView(
     var userProfile by remember { mutableStateOf(UserProfile()) }
     var showingPathSelector by remember { mutableStateOf(false) }
     var showingLanguageSelector by remember { mutableStateOf(false) }
+    var showingReminderPopup by remember { mutableStateOf(false) }
     var retryTrigger by remember { mutableStateOf(0) }
     var showingConversation by remember { mutableStateOf(false) }
     var selectedLevelForConversation by remember { mutableStateOf<Pair<Int, String>?>(null) }
@@ -85,6 +89,9 @@ fun CareerMapView(
     
     // Check authentication status on launch
     LaunchedEffect(Unit) {
+        // Analytics
+        com.spikai.service.AnalyticsService.logCareerMapViewed()
+
         checkAuthenticationStatus { isSignedIn ->
             isUserSignedIn = isSignedIn
             isCheckingAuth = false
@@ -101,6 +108,12 @@ fun CareerMapView(
             // TODO: Implement level unlock listener
             // setupLevelUnlockListener()
             viewModel.loadCareerLevels()
+            
+            // Check if we need to show the daily reminder popup
+            if (!userPreferencesService.hasShownDailyReminderPopup) {
+                delay(1500)
+                showingReminderPopup = true
+            }
         }
     }
     
@@ -224,6 +237,12 @@ fun CareerMapView(
                     showingConversation = false
                     selectedLevelForConversation = null
                 }
+            )
+        }
+        
+        if (showingReminderPopup) {
+            DailyReminderPopup(
+                onDismiss = { showingReminderPopup = false }
             )
         }
     }
@@ -1037,7 +1056,7 @@ private fun WalkthroughMessagePopup() {
             .shadow(
                 elevation = shadowRadius.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = Color(0xFFFF9500), // Orange glow
+                ambientColor = Color(0xFFFF9500),
                 spotColor = Color(0xFFFF9500)
             )
             .background(
