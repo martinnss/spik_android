@@ -45,6 +45,9 @@ fun LevelEvaluationPopupView(
     var isNavigatingToCareerMap by remember { mutableStateOf(false) }
     
     LaunchedEffect(Unit) {
+        // Analytics
+        com.spikai.service.AnalyticsService.logConversationAnalysisViewed(evaluation.score)
+
         // Stagger the animations for a nice effect
         animateAppearance = true
         delay(300)

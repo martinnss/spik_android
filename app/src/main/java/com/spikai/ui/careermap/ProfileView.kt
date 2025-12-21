@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spikai.model.UserProfile
 import kotlinx.coroutines.delay
 
@@ -40,6 +41,7 @@ fun ProfileView(
     var showingDeleteAccountAlert by remember { mutableStateOf(false) }
     var showingDeleteSuccessAlert by remember { mutableStateOf(false) }
     var isDeletingAccount by remember { mutableStateOf(false) }
+    var showingReminderPopup by remember { mutableStateOf(false) }
     
     LaunchedEffect(Unit) {
         loadUserProfile { profile ->
@@ -106,10 +108,17 @@ fun ProfileView(
                         context.startActivity(intent)
                     },
                     onSignOutClick = { showingSignOutAlert = true },
-                    onDeleteAccountClick = { showingDeleteAccountAlert = true }
+                    onDeleteAccountClick = { showingDeleteAccountAlert = true },
+                    onReminderClick = { showingReminderPopup = true }
                 )
             }
         }
+    }
+    
+    if (showingReminderPopup) {
+        DailyReminderPopup(
+            onDismiss = { showingReminderPopup = false }
+        )
     }
     
     // Alert dialogs positioned above the main content
@@ -268,8 +277,15 @@ private fun SettingsSection(
     onPrivacyPolicyClick: () -> Unit,
     onTermsClick: () -> Unit,
     onSignOutClick: () -> Unit,
-    onDeleteAccountClick: () -> Unit
+    onDeleteAccountClick: () -> Unit,
+    onReminderClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val userPreferencesService = remember { com.spikai.service.UserPreferencesService.getInstance(context) }
+    
+    val isReminderEnabled by userPreferencesService.isReminderEnabledFlow.collectAsStateWithLifecycle()
+    val reminderTime by userPreferencesService.reminderTimeFlow.collectAsStateWithLifecycle()
+    
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -288,6 +304,19 @@ private fun SettingsSection(
             )
         ) {
             Column {
+                SettingRow(
+                    icon = Icons.Default.Alarm,
+                    title = if (isReminderEnabled) "Editar recordatorio ($reminderTime)" else "Crear recordatorio",
+                    color = Color(0xFF007AFF), // PrimaryBlue
+                    showArrow = true,
+                    onClick = onReminderClick
+                )
+                
+                Divider(
+                    modifier = Modifier.padding(start = 44.dp),
+                    color = Color(0xFFE5E5EA) // BorderLight
+                )
+                
                 SettingRow(
                     icon = Icons.Default.Security,
                     title = "Política de Privacidad",

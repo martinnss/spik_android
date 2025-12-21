@@ -2,6 +2,9 @@ package com.spikai.service
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class UserPreferencesService private constructor(private val context: Context) {
     
@@ -30,6 +33,8 @@ class UserPreferencesService private constructor(private val context: Context) {
         private const val KEY_DIFFICULTY_LEVEL = "difficultyLevel"
         private const val KEY_SESSION_DURATION = "sessionDuration"
         private const val KEY_AI_SPEAKING_SPEED = "user_ai_speaking_speed"
+        private const val KEY_HAS_SHOWN_DAILY_REMINDER_POPUP = "hasShownDailyReminderPopup"
+        private const val KEY_IS_REMINDER_ENABLED = "isReminderEnabled"
     }
     
     init {
@@ -123,6 +128,9 @@ class UserPreferencesService private constructor(private val context: Context) {
                 .apply()
         }
     
+    private val _reminderTimeFlow = MutableStateFlow(sharedPreferences.getString(KEY_REMINDER_TIME, "20:00") ?: "20:00")
+    val reminderTimeFlow: StateFlow<String> = _reminderTimeFlow.asStateFlow()
+
     var reminderTime: String
         get() {
             val value = sharedPreferences.getString(KEY_REMINDER_TIME, "20:00") ?: "20:00"
@@ -134,6 +142,7 @@ class UserPreferencesService private constructor(private val context: Context) {
             sharedPreferences.edit()
                 .putString(KEY_REMINDER_TIME, value)
                 .apply()
+            _reminderTimeFlow.value = value
         }
     
     var difficultyLevel: String
@@ -176,6 +185,56 @@ class UserPreferencesService private constructor(private val context: Context) {
                 .putFloat(KEY_AI_SPEAKING_SPEED, value.toFloat())
                 .apply()
         }
+        
+    // MARK: - Daily Reminder
+    
+    var hasShownDailyReminderPopup: Boolean
+        get() {
+            val value = sharedPreferences.getBoolean(KEY_HAS_SHOWN_DAILY_REMINDER_POPUP, false)
+            println("🔔 [UserPreferencesService] Get has shown daily reminder popup: $value")
+            return value
+        }
+        set(value) {
+            println("🔔 [UserPreferencesService] Set has shown daily reminder popup: $value")
+            sharedPreferences.edit()
+                .putBoolean(KEY_HAS_SHOWN_DAILY_REMINDER_POPUP, value)
+                .apply()
+        }
+
+    private val _isReminderEnabledFlow = MutableStateFlow(sharedPreferences.getBoolean(KEY_IS_REMINDER_ENABLED, false))
+    val isReminderEnabledFlow: StateFlow<Boolean> = _isReminderEnabledFlow.asStateFlow()
+
+    var isReminderEnabled: Boolean
+        get() {
+            val value = sharedPreferences.getBoolean(KEY_IS_REMINDER_ENABLED, false)
+            println("🔔 [UserPreferencesService] Get is reminder enabled: $value")
+            return value
+        }
+        set(value) {
+            println("🔔 [UserPreferencesService] Set is reminder enabled: $value")
+            sharedPreferences.edit()
+                .putBoolean(KEY_IS_REMINDER_ENABLED, value)
+                .apply()
+            _isReminderEnabledFlow.value = value
+        }
+
+    fun saveReminderTime(hour: Int, minute: Int) {
+        val timeString = String.format("%02d:%02d", hour, minute)
+        reminderTime = timeString
+        isReminderEnabled = true
+        println("💾 [UserPreferencesService] Saved daily reminder time: $timeString")
+        
+        // Analytics
+        AnalyticsService.logReminderSettings(true, timeString)
+    }
+    
+    fun getReminderTimeComponents(): Pair<Int, Int> {
+        val parts = reminderTime.split(":")
+        if (parts.size == 2) {
+            return Pair(parts[0].toIntOrNull() ?: 9, parts[1].toIntOrNull() ?: 0)
+        }
+        return Pair(9, 0)
+    }
     
     val hasCustomPreferences: Boolean
         get() = sharedPreferences.all.isNotEmpty()
@@ -257,5 +316,13 @@ class UserPreferencesService private constructor(private val context: Context) {
         println("🎯 Difficulty level: $difficultyLevel")
         println("⏱️ Session duration: $sessionDuration minutes")
         println("===============================================")
+    }
+
+    /// Log current reminder settings to Analytics (call on app launch)
+    fun logCurrentReminderSettings() {
+        val enabled = isReminderEnabled
+        val timeString = if (enabled) reminderTime else null
+        
+        AnalyticsService.logReminderSettings(enabled, timeString)
     }
 }
