@@ -313,6 +313,21 @@ class ConversationViewModel(
             println("⚠️ [ConversationVM] Cannot fail level - levelId is nil")
         }
     }
+
+    // MARK: - Progress Tracking
+    val userMessageCount: Int
+        get() = _conversation.value.count { it.role == "user" }
+
+    val canManuallyFinishLevel: Boolean
+        get() = userMessageCount >= 10
+
+    val isLevelSession: Boolean
+        get() = levelId != null
+
+    fun triggerManualEvaluation() {
+        println("👆 [ConversationVM] Manual evaluation triggered")
+        evaluateLevelProgression()
+    }
     
     // MARK: - Conversation Analysis Methods
     

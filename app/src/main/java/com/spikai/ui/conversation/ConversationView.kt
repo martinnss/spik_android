@@ -5,6 +5,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -52,6 +55,14 @@ fun ConversationView(
     val aiSpeakingSpeed by viewModel.aiSpeakingSpeed.collectAsStateWithLifecycle()
     val showEvaluationPopup by viewModel.showEvaluationPopup.collectAsStateWithLifecycle()
     val levelEvaluation by viewModel.levelEvaluation.collectAsStateWithLifecycle()
+
+    // Derived state for progress
+    val userMessageCount = remember(messages) {
+        messages.count { it.role == "user" }
+    }
+    val canManuallyFinishLevel = remember(userMessageCount) {
+        userMessageCount >= 10
+    }
 
     // Debug logging for popup state
     LaunchedEffect(showEvaluationPopup) {
@@ -124,6 +135,15 @@ fun ConversationView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 8.dp)
+                )
+            }
+
+            // Progress Section
+            if (levelId != null || viewModel.isLevelSession) {
+                ProgressSection(
+                    userMessageCount = userMessageCount,
+                    canManuallyFinishLevel = canManuallyFinishLevel,
+                    onManualFinish = { viewModel.triggerManualEvaluation() }
                 )
             }
 
@@ -460,6 +480,112 @@ private fun CloseConfirmationDialog(
                             text = "Cancelar",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressSection(
+    userMessageCount: Int,
+    canManuallyFinishLevel: Boolean,
+    onManualFinish: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AnimatedContent(
+            targetState = canManuallyFinishLevel,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(300)) + scaleIn()).togetherWith(
+                    fadeOut(animationSpec = tween(300)) + scaleOut()
+                )
+            },
+            label = "ProgressSectionAnimation"
+        ) { canFinish ->
+            if (canFinish) {
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onManualFinish()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF34C759) // SuccessGreen
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 6.dp
+                    ),
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp, vertical = 10.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = RoundedCornerShape(20.dp),
+                            spotColor = Color(0xFF34C759).copy(alpha = 0.3f)
+                        )
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Terminar y evaluar",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 40.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "$userMessageCount/10",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF8E8E93), // TextSecondary
+                        modifier = Modifier.width(IntrinsicSize.Min)
+                    )
+                    
+                    // Progress Bar
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(Color(0xFF3A3A3C)) // BackgroundTertiary
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(fraction = (userMessageCount.coerceAtMost(10) / 10f))
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color(0xFF0A84FF), // PrimaryBlue
+                                            Color(0xFFBF5AF2)  // PrimaryPurple
+                                        )
+                                    )
+                                )
                         )
                     }
                 }
