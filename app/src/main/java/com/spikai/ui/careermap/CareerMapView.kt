@@ -4,6 +4,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +13,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -773,21 +776,71 @@ private fun MainContent(
             // Scrollable Levels Section
             LazyColumn(
                 state = listState,
+                contentPadding = PaddingValues(bottom = 140.dp, top = 20.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                item {
-                    PathSection(
-                        viewModel = viewModel,
-                        levels = levels,
-                        currentLevelAnimating = currentLevelAnimating,
-                        nextLevelAnimating = nextLevelAnimating,
-                        lineAnimating = lineAnimating,
-                        animatingCompletedLevelId = animatingCompletedLevelId,
-                        animatingUnlockedLevelId = animatingUnlockedLevelId,
-                        isHighlightMode = isHighlightMode,
-                        overlayColor = overlayColor,
-                        onDismissWalkthrough = onDismissWalkthrough
-                    )
+                itemsIndexed(levels) { index, level ->
+                    val isCurrentLevelAnimating = currentLevelAnimating && animatingCompletedLevelId == level.levelId
+                    val isNextLevelAnimating = nextLevelAnimating && animatingUnlockedLevelId == level.levelId
+                    val isFirstLevel = index == 0
+                    
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 40.dp)
+                    ) {
+                        Box {
+                            LevelNodeView(
+                                level = level,
+                                isCurrentLevelAnimating = isCurrentLevelAnimating,
+                                isNextLevelAnimating = isNextLevelAnimating,
+                                isFirstLevel = isFirstLevel,
+                                isHighlightMode = isHighlightMode,
+                                onTap = { 
+                                    if (isHighlightMode) {
+                                        onDismissWalkthrough()
+                                    }
+                                    viewModel.selectLevel(level) 
+                                }
+                            )
+                            
+                            if (isHighlightMode && !isFirstLevel) {
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .background(overlayColor)
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) { onDismissWalkthrough() }
+                                )
+                            }
+                        }
+                        
+                        // Path connector to next level
+                        if (index < levels.size - 1) {
+                            val nextLevel = levels[index + 1]
+                            Box {
+                                PathConnector(
+                                    nextLevel = nextLevel,
+                                    lineAnimating = lineAnimating,
+                                    animatingUnlockedLevelId = animatingUnlockedLevelId
+                                )
+                                
+                                if (isHighlightMode) {
+                                    Box(
+                                        modifier = Modifier
+                                            .matchParentSize()
+                                            .background(overlayColor)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) { onDismissWalkthrough() }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -826,8 +879,8 @@ private fun MainContent(
         // Walkthrough message popup
         AnimatedVisibility(
             visible = isHighlightMode,
-            enter = scaleIn() + androidx.compose.animation.fadeIn(),
-            exit = scaleOut() + androidx.compose.animation.fadeOut(),
+            enter = scaleIn() + fadeIn(),
+            exit = scaleOut() + fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 90.dp)
@@ -919,88 +972,7 @@ private fun HeaderSection(
     }
 }
 
-@Composable
-private fun PathSection(
-    viewModel: CareerMapViewModel,
-    levels: List<CareerLevel>,
-    currentLevelAnimating: Boolean,
-    nextLevelAnimating: Boolean,
-    lineAnimating: Boolean,
-    animatingCompletedLevelId: Int?,
-    animatingUnlockedLevelId: Int?,
-    isHighlightMode: Boolean,
-    overlayColor: Color,
-    onDismissWalkthrough: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 40.dp)
-            .padding(bottom = 40.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
-    ) {
-        levels.forEach { level ->
-            val index = levels.indexOf(level)
-            val isCurrentLevelAnimating = currentLevelAnimating && animatingCompletedLevelId == level.levelId
-            val isNextLevelAnimating = nextLevelAnimating && animatingUnlockedLevelId == level.levelId
-            val isFirstLevel = index == 0
-            
-            Column {
-                Box {
-                    LevelNodeView(
-                        level = level,
-                        isCurrentLevelAnimating = isCurrentLevelAnimating,
-                        isNextLevelAnimating = isNextLevelAnimating,
-                        isFirstLevel = isFirstLevel,
-                        isHighlightMode = isHighlightMode,
-                        onTap = { 
-                            if (isHighlightMode) {
-                                onDismissWalkthrough()
-                            }
-                            viewModel.selectLevel(level) 
-                        }
-                    )
-                    
-                    if (isHighlightMode && !isFirstLevel) {
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .background(overlayColor)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) { onDismissWalkthrough() }
-                        )
-                    }
-                }
-                
-                // Path connector to next level
-                if (index < levels.size - 1) {
-                    val nextLevel = levels[index + 1]
-                    Box {
-                        PathConnector(
-                            nextLevel = nextLevel,
-                            lineAnimating = lineAnimating,
-                            animatingUnlockedLevelId = animatingUnlockedLevelId
-                        )
-                        
-                        if (isHighlightMode) {
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .background(overlayColor)
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null
-                                    ) { onDismissWalkthrough() }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun PathConnector(
