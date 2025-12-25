@@ -2,10 +2,14 @@ package com.spikai.service
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -13,6 +17,14 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
+
+@Serializable
+data class FCMTokenRequest(
+    val userId: String,
+    val fcmToken: String,
+    val platform: String,
+    val timestamp: Double
+)
 
 class FCMTokenService(private val context: Context) {
     
@@ -53,14 +65,14 @@ class FCMTokenService(private val context: Context) {
             return
         }
         
-        println("📱 [FCMTokenService] FCM token received: ${token.take(20)}...")
+        // Print full token for testing/debugging purposes
+        println("📱 [FCMTokenService] FCM token received: $token")
         uploadFCMToken(token)
     }
     
     /// Upload FCM token to backend server
     fun uploadFCMToken(token: String) {
         coroutineScope.launch {
-            // TODO: Firebase Auth not provided in context - needs to be implemented
             val currentUserId = getCurrentUserId()
             
             if (currentUserId == null) {
@@ -77,11 +89,11 @@ class FCMTokenService(private val context: Context) {
             println("🌐 [FCMTokenService] Uploading FCM token to: $fullURL")
             
             try {
-                val requestBody = mapOf(
-                    "userId" to currentUserId,
-                    "fcmToken" to token,
-                    "platform" to "Android",
-                    "timestamp" to (System.currentTimeMillis() / 1000.0)
+                val requestBody = FCMTokenRequest(
+                    userId = currentUserId,
+                    fcmToken = token,
+                    platform = "Android",
+                    timestamp = System.currentTimeMillis() / 1000.0
                 )
                 
                 val jsonBody = json.encodeToString(requestBody)
@@ -186,13 +198,16 @@ class FCMTokenService(private val context: Context) {
     
     // TODO: Firebase Auth not provided in context - placeholder implementation
     private fun getCurrentUserId(): String? {
-        // This should return Firebase Auth currentUser?.uid
-        return null // TODO: Implement Firebase Auth integration
+        return FirebaseAuth.getInstance().currentUser?.uid
     }
     
     // TODO: Firebase Messaging not provided in context - placeholder implementation
     private suspend fun getFirebaseMessagingToken(): String? {
-        // This should return Firebase Messaging token
-        return null // TODO: Implement Firebase Messaging integration
+        return try {
+            FirebaseMessaging.getInstance().token.await()
+        } catch (e: Exception) {
+            println("❌ [FCMTokenService] Failed to get FCM token: ${e.message}")
+            null
+        }
     }
 }

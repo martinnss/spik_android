@@ -25,8 +25,8 @@ android {
         applicationId = "com.spikai"
         minSdk = 24
         targetSdk = 36
-        versionCode = 15
-        versionName = "1.1.9"
+        versionCode = 16
+        versionName = "1.1.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -98,6 +98,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-database-ktx")
+    implementation("com.google.firebase:firebase-messaging-ktx")
     
     // Google Sign-In
     implementation("com.google.android.gms:play-services-auth:20.7.0")

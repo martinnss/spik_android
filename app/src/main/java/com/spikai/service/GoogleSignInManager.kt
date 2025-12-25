@@ -235,6 +235,9 @@ class GoogleSignInManager private constructor(
                 _currentUser.value = user
                 _errorMessage.value = null
                 
+                // Upload any pending FCM token now that user is authenticated
+                FCMTokenService.getInstance(context).uploadPendingTokenIfExists()
+                
                 Log.d(TAG, "🎊 Usuario autenticado exitosamente - continuando progreso")
                 completion(true)
             } else {
