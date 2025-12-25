@@ -278,7 +278,27 @@ class WebRTCManager(private val context: Context) : ViewModel() {
         if (message.isEmpty()) return
         
         println("📤 [WebRTCManager] Sending text message: $message")
-        // Implementation for sending text messages via data channel
+        
+        // 1. Send conversation.item.create event
+        val itemEvent = mapOf(
+            "type" to "conversation.item.create",
+            "item" to mapOf(
+                "type" to "message",
+                "role" to "user",
+                "content" to listOf(
+                    mapOf(
+                        "type" to "input_text",
+                        "text" to message
+                    )
+                )
+            )
+        )
+        sendEvent(itemEvent)
+        
+        // 2. Trigger response
+        createResponse()
+        
+        // 3. Clear outgoing message
         _outgoingMessage.value = ""
     }
     
@@ -936,7 +956,7 @@ class WebRTCManager(private val context: Context) : ViewModel() {
     private fun updateConversationList() {
         _conversation.value = conversationMap.values
             .filter { it.role == "assistant" || it.role == "user" }
-            .sortedBy { it.id }
+            .toList()
     }
     
     private fun muteLocalAudio(mute: Boolean) {

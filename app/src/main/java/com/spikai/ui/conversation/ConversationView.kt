@@ -17,9 +17,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +83,14 @@ fun ConversationView(
     val listState = rememberLazyListState()
     var showSettingsMenu by remember { mutableStateOf(false) }
     var showCloseConfirmation by remember { mutableStateOf(false) }
+    
+    // Keyboard/Text Input state
+    var isKeyboardMode by remember { mutableStateOf(false) }
+    var textInputMessage by remember { mutableStateOf("") }
+    val focusRequester = remember { FocusRequester() }
+    
+    // Text input helpers
+    val canSendTextMessage = textInputMessage.trim().isNotEmpty() && connectionStatus == ConnectionStatus.CONNECTED
 
     // Request microphone permission
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -191,19 +206,53 @@ fun ConversationView(
                 }
             }
 
-            // iOS Style Call Control Bar
-            CallControlBar(
-                connectionStatus = connectionStatus,
-                isMuted = isMuted,
-                onHangUp = {
-                    if (connectionStatus == ConnectionStatus.CONNECTED ||
-                        connectionStatus == ConnectionStatus.CONNECTING) {
-                        viewModel.endSession()
-                    }
-                    onBack()
+            // Bottom Control Bar (Call or Keyboard)
+            AnimatedContent(
+                targetState = isKeyboardMode,
+                transitionSpec = {
+                    (slideInVertically { it } + fadeIn()).togetherWith(
+                        slideOutVertically { it } + fadeOut()
+                    )
                 },
-                onToggleMute = { viewModel.toggleMute() }
-            )
+                label = "BottomBarAnimation"
+            ) { keyboardMode ->
+                if (keyboardMode) {
+                    KeyboardInputBar(
+                        textInputMessage = textInputMessage,
+                        onTextChange = { textInputMessage = it },
+                        canSend = canSendTextMessage,
+                        focusRequester = focusRequester,
+                        onSend = {
+                            if (canSendTextMessage) {
+                                val messageToSend = textInputMessage.trim()
+                                textInputMessage = ""
+                                viewModel.sendTextMessage(messageToSend)
+                            }
+                        },
+                        onSwitchToVoice = {
+                            viewModel.setMuted(false)
+                            isKeyboardMode = false
+                        }
+                    )
+                } else {
+                    CallControlBar(
+                        connectionStatus = connectionStatus,
+                        isMuted = isMuted,
+                        onHangUp = {
+                            if (connectionStatus == ConnectionStatus.CONNECTED ||
+                                connectionStatus == ConnectionStatus.CONNECTING) {
+                                viewModel.endSession()
+                            }
+                            onBack()
+                        },
+                        onToggleMute = { viewModel.toggleMute() },
+                        onSwitchToKeyboard = {
+                            viewModel.setMuted(true)
+                            isKeyboardMode = true
+                        }
+                    )
+                }
+            }
         }
 
         // Settings Menu Overlay
@@ -305,7 +354,8 @@ private fun CallControlBar(
     connectionStatus: ConnectionStatus,
     isMuted: Boolean,
     onHangUp: () -> Unit,
-    onToggleMute: () -> Unit
+    onToggleMute: () -> Unit,
+    onSwitchToKeyboard: () -> Unit = {}
 ) {
     val isConnected = connectionStatus == ConnectionStatus.CONNECTED
     
@@ -320,53 +370,90 @@ private fun CallControlBar(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Microphone button
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            // Control buttons row
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(70.dp)
-                        .clip(CircleShape)
-                        .background(
-                            when {
-                                !isConnected -> Color(0xFFF2F2F7) // BackgroundSecondary
-                                isMuted -> Color(0xFFFF3B30) // ErrorRed
-                                else -> Color.White.copy(alpha = 0.2f)
-                            }
-                        )
-                        .clickable(enabled = isConnected) { onToggleMute() },
-                    contentAlignment = Alignment.Center
+                // Microphone button
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = when {
-                            !isConnected -> Icons.Default.MicOff
-                            isMuted -> Icons.Default.MicOff
-                            else -> Icons.Default.Mic
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape)
+                            .background(
+                                when {
+                                    !isConnected -> Color(0xFFF2F2F7) // BackgroundSecondary
+                                    isMuted -> Color(0xFFFF3B30) // ErrorRed
+                                    else -> Color.White.copy(alpha = 0.2f)
+                                }
+                            )
+                            .clickable(enabled = isConnected) { onToggleMute() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = when {
+                                !isConnected -> Icons.Default.MicOff
+                                isMuted -> Icons.Default.MicOff
+                                else -> Icons.Default.Mic
+                            },
+                            contentDescription = "Microphone",
+                            tint = when {
+                                !isConnected -> Color(0xFF8E8E93) // TextSecondary
+                                isMuted -> Color.White
+                                else -> Color.White
+                            },
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    
+                    Text(
+                        text = when {
+                            !isConnected -> "mute"
+                            isMuted -> "unmute"
+                            else -> "mute"
                         },
-                        contentDescription = "Microphone",
-                        tint = when {
-                            !isConnected -> Color(0xFF8E8E93) // TextSecondary
-                            isMuted -> Color.White
+                        fontSize = 12.sp,
+                        color = when {
+                            !isConnected -> Color(0xFF8E8E93)
                             else -> Color.White
-                        },
-                        modifier = Modifier.size(32.dp)
+                        }
                     )
                 }
                 
-                Text(
-                    text = when {
-                        !isConnected -> "mute"
-                        isMuted -> "unmute"
-                        else -> "mute"
-                    },
-                    fontSize = 14.sp,
-                    color = when {
-                        !isConnected -> Color(0xFF8E8E93)
-                        else -> Color.White
+                // Keyboard button
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isConnected) Color.White.copy(alpha = 0.2f)
+                                else Color(0xFFF2F2F7)
+                            )
+                            .clickable(enabled = isConnected) { onSwitchToKeyboard() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Keyboard,
+                            contentDescription = "Keyboard",
+                            tint = if (isConnected) Color.White else Color(0xFF8E8E93),
+                            modifier = Modifier.size(28.dp)
+                        )
                     }
-                )
+                    
+                    Text(
+                        text = "teclado",
+                        fontSize = 12.sp,
+                        color = if (isConnected) Color.White else Color(0xFF8E8E93)
+                    )
+                }
             }
 
             // Hang up button
@@ -589,6 +676,140 @@ private fun ProgressSection(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun KeyboardInputBar(
+    textInputMessage: String,
+    onTextChange: (String) -> Unit,
+    canSend: Boolean,
+    focusRequester: FocusRequester,
+    onSend: () -> Unit,
+    onSwitchToVoice: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+    
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 34.dp),
+        color = Color(0xFF1C1C1E).copy(alpha = 0.95f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Text Input Field
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF2C2C2E))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BasicTextField(
+                        value = textInputMessage,
+                        onValueChange = onTextChange,
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(focusRequester),
+                        textStyle = LocalTextStyle.current.copy(
+                            color = Color.White,
+                            fontSize = 16.sp
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Sentences,
+                            imeAction = ImeAction.Send
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSend = { onSend() }
+                        ),
+                        singleLine = true,
+                        decorationBox = { innerTextField ->
+                            Box {
+                                if (textInputMessage.isEmpty()) {
+                                    Text(
+                                        text = "Escribe tu mensaje...",
+                                        color = Color(0xFF8E8E93),
+                                        fontSize = 16.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                    
+                    // Clear button
+                    if (textInputMessage.isNotEmpty()) {
+                        IconButton(
+                            onClick = { onTextChange("") },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = Color(0xFF8E8E93),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Send Button
+            IconButton(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onSend()
+                },
+                enabled = canSend,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (canSend) Color(0xFF0A84FF) else Color(0xFF3A3A3C)
+                    )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Send,
+                    contentDescription = "Send",
+                    tint = if (canSend) Color.White else Color(0xFF8E8E93),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            // Switch to Voice Button
+            IconButton(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onSwitchToVoice()
+                },
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF2C2C2E))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "Switch to voice",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

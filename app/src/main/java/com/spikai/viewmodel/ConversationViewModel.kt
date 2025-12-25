@@ -276,6 +276,10 @@ class ConversationViewModel(
         webRTCManager.toggleMute()
     }
     
+    fun setMuted(muted: Boolean) {
+        webRTCManager.setMuted(muted)
+    }
+    
     fun stopRecording() {
         // Stop any ongoing recording or audio processing
         _isRecording.value = false
@@ -284,6 +288,23 @@ class ConversationViewModel(
     
     fun sendMessage() {
         if (!canSendMessage) return
+        webRTCManager.sendMessage()
+    }
+    
+    fun sendTextMessage(text: String) {
+        if (!isConnected) {
+            println("❌ [ConversationVM] Cannot send text message - not connected")
+            return
+        }
+        if (text.trim().isEmpty()) {
+            println("❌ [ConversationVM] Cannot send text message - empty text")
+            return
+        }
+        
+        println("📝 [ConversationVM] Sending text message: $text")
+        
+        // Update WebRTC manager directly and send
+        webRTCManager.setOutgoingMessage(text)
         webRTCManager.sendMessage()
     }
     
